@@ -3,7 +3,7 @@ from splitio.exceptions import TimeoutException
 from datetime import datetime, timedelta
 
 try:
-    from config import SPLIT_API_KEY
+    from .config import SPLIT_API_KEY
 except ImportError:
     raise ImportError("Failed to import configuration. Ensure config.py exists and is properly set up.")
 

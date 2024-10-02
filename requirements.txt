@@ -5,3 +5,4 @@ pandas
 anthropic
 slack_sdk
 splitio_client
+setuptools

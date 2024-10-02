@@ -4,7 +4,7 @@ import requests
 
 # Import configuration
 try:
-    from config import LINEAR_API_KEY
+    from .config import LINEAR_API_KEY
 except ImportError:
     raise ImportError("Failed to import configuration. Ensure config.py exists and is properly set up.")
 

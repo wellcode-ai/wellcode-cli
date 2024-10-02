@@ -7,7 +7,7 @@ import re
 
 # Import configuration
 try:
-    from config import GITHUB_TOKEN, ANTHROPIC_API_KEY 
+    from .config import GITHUB_TOKEN, ANTHROPIC_API_KEY 
 except ImportError: 
     raise ImportError("Failed to import configuration. Ensure config.py exists and is properly set up.")
 
@@ -147,7 +147,7 @@ def get_github_metrics(org_name, start_date, end_date, user_filter=None):
         'lead_times': [],
     }
 
-    print(f"Go Diego Go!")
+    print(f"Wellcode CLI!")
     # Iterate through all repositories in the organization
     for repo in org.get_repos():
         

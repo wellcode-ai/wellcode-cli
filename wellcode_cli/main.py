@@ -1,12 +1,12 @@
-from github_metrics import get_github_metrics,format_ai_response,get_ai_analysis  # Add this import at the top of the file
-from linear_metrics import get_linear_metrics,print_linear_metrics
-from split_metrics import get_split_metrics,print_split_metrics
+from .github_metrics import get_github_metrics,format_ai_response,get_ai_analysis  # Add this import at the top of the file
+from .linear_metrics import get_linear_metrics,print_linear_metrics
+from .split_metrics import get_split_metrics,print_split_metrics
 from datetime import datetime, timedelta
 import argparse
 
 # Import configuration
 try:
-    from config import GITHUB_ORG, GITHUB_TOKEN, LINEAR_API_KEY, SPLIT_API_KEY
+    from .config import GITHUB_ORG, GITHUB_TOKEN, LINEAR_API_KEY, SPLIT_API_KEY
 except ImportError: 
     raise ImportError("Failed to import configuration. Ensure config.py exists and is properly set up.")
 
@@ -60,8 +60,10 @@ def main():
         split_metrics = get_split_metrics(start_date, end_date)
         all_metrics['split'] = split_metrics
         print_split_metrics(split_metrics)
-
-    print(format_ai_response(get_ai_analysis(all_metrics)))
+    if not ANTHROPIC_API_KEY:
+        print(f"ANTHROPIC_API_KEY not found in configuration, no ai analysis will be fetched")
+    else:
+        print(format_ai_response(get_ai_analysis(all_metrics)))
 
 if __name__ == "__main__":
     main()    

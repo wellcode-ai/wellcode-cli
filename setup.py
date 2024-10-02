@@ -6,15 +6,30 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        'requests',
-        'python-dateutil',
+        'PyGithub',
+        'slackclient',
+        'python-dotenv',
+        'pandas',
+        'anthropic',
+        'slack_sdk',
         'splitio_client',
-        'openai',
-        # Add any other dependencies
+        'setuptools'
     ],
     entry_points={
         'console_scripts': [
-            'wellcode-cli=wellcode-cli.main:main',
+            'wellcode-cli=wellcode_cli.main:main',
         ],
     },
+    author='Wellcode.ai',
+    author_email='yan@wellcode.ai',
+    description='Engineering Team Metrics Script',
+    long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
+    url='https://github.com/wellcode-ai/wellcode-cli',
+    classifiers=[
+        'Programming Language :: Python :: 3',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: OS Independent',
+    ],
+    python_requires='>=3.7',
 )
