@@ -101,6 +101,20 @@ wellcode-cli --user johndoe
 
 This command will generate a report for the user 'johndoe' based on the current week's data.
 
+## Sample Output
+
+### GitHub Metrics
+![GitHub Metrics](demo/picture_1.png)
+
+### Linear Metrics
+![Linear Metrics](demo/picture_2.png)
+
+### Cycle Time Statistics
+![Cycle Time Statistics](demo/picture_3.png)
+
+### AI Analysis
+![AI Analysis](demo/picture_4.png)
+
 ## Features
 
 - GitHub metrics: PRs created, merged, deployment frequency, lead time, etc.
