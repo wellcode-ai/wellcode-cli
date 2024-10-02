@@ -1,8 +1,9 @@
 from setuptools import setup, find_packages
+from wellcode_cli import __version__
 
 setup(
     name='wellcode-cli',
-    version='0.1.3',
+    version=__version__,
     packages=find_packages(),
     include_package_data=True,
     install_requires=[

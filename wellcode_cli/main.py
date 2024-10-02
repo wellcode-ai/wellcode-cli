@@ -3,7 +3,7 @@ from .linear_metrics import get_linear_metrics,print_linear_metrics
 from .split_metrics import get_split_metrics,print_split_metrics
 from datetime import datetime, timedelta
 import argparse
-
+from wellcode_cli import __version__  # We'll define this in __init__.py
 # Import configuration
 try:
     from .config import GITHUB_ORG, GITHUB_TOKEN, LINEAR_API_KEY, SPLIT_API_KEY,ANTHROPIC_API_KEY
@@ -14,6 +14,7 @@ def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description="Get GitHub metrics")
     parser.add_argument("--user", help="GitHub username to filter by", default=None)
+    parser.add_argument('--version', action='version', version=f'%(prog)s {__version__}')
     args = parser.parse_args()
     user_filter = args.user
  
