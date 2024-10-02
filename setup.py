@@ -14,7 +14,8 @@ setup(
         'anthropic',
         'slack_sdk',
         'splitio_client',
-        'setuptools'
+        'setuptools',
+        'colorama',
     ],
     entry_points={
         'console_scripts': [

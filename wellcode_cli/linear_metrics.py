@@ -1,6 +1,8 @@
 import os
 from datetime import datetime
 import requests
+from colorama import Fore, Style
+from .utils import color_print
 
 # Import configuration
 try:
@@ -111,40 +113,40 @@ def get_linear_metrics(start_date, end_date, user_filter=None):
 
     return metrics
 
-
 def print_linear_metrics(metrics):
-    print("\nLINEAR METRICS:")
-    print("===============")
+    color_print("\nLINEAR METRICS:", Fore.GREEN, Style.BRIGHT)
+    color_print("===============", Fore.GREEN)
     
-    print(f"Issues Created: {metrics['issues_created']}")
-    print(f"Issues Completed: {metrics['issues_completed']}")
+     
+    color_print(f"Issues Created: {metrics['issues_created']}", Fore.CYAN)
+    color_print(f"Issues Completed: {metrics['issues_completed']}", Fore.CYAN)
     
     if 'average_cycle_time' in metrics:
-        print(f"Average Cycle Time: {metrics['average_cycle_time']:.2f} hours")
+        color_print(f"Average Cycle Time: {metrics['average_cycle_time']:.2f} hours", Fore.CYAN)
     
-    print("\nIssues Created by Priority:")
-    print("---------------------------")
+    color_print("\nIssues Created by Priority:", Fore.YELLOW, Style.BRIGHT)
+    color_print("---------------------------", Fore.YELLOW)
     for priority, count in metrics['priority_breakdown'].items():
-        print(f"{priority:12} {count:3d}")
+        color_print(f"{priority:12} {count:3d}", Fore.WHITE)
     
-    print("\nUser Contributions:")
-    print("-------------------")
+    color_print("\nUser Contributions:", Fore.MAGENTA, Style.BRIGHT)
+    color_print("-------------------", Fore.MAGENTA)
     for user, contribution in metrics['user_contributions'].items():
-        print(f"{user:20} Created: {contribution['created']:3d}  Completed: {contribution['completed']:3d}")
+        color_print(f"{user:20} Created: {contribution['created']:3d}  Completed: {contribution['completed']:3d}", Fore.WHITE)
     
-    print("\nTop 5 Users by Issues Created:")
-    print("-------------------------------")
+    color_print("\nTop 5 Users by Issues Created:", Fore.BLUE, Style.BRIGHT)
+    color_print("-------------------------------", Fore.BLUE)
     sorted_users = sorted(metrics['user_contributions'].items(), 
                           key=lambda x: x[1]['created'], reverse=True)[:5]
     for user, contribution in sorted_users:
-        print(f"{user:20} Issues: {contribution['created']:3d}")
+        color_print(f"{user:20} Issues: {contribution['created']:3d}", Fore.WHITE)
 
     if 'cycle_time' in metrics and metrics['cycle_time']:
-        print("\nCycle Time Statistics (in hours):")
-        print("----------------------------------")
+        color_print("\nCycle Time Statistics (in hours):", Fore.RED, Style.BRIGHT)
+        color_print("----------------------------------", Fore.RED)
         cycle_times = metrics['cycle_time']
-        print(f"Minimum: {min(cycle_times):.2f}")
-        print(f"Maximum: {max(cycle_times):.2f}")
-        print(f"Average: {sum(cycle_times) / len(cycle_times):.2f}")
+        color_print(f"Minimum: {min(cycle_times):.2f}", Fore.WHITE)
+        color_print(f"Maximum: {max(cycle_times):.2f}", Fore.WHITE)
+        color_print(f"Average: {sum(cycle_times) / len(cycle_times):.2f}", Fore.WHITE)
         
-    print("\n" + "=" * 40)
+    color_print("\n" + "=" * 40, Fore.GREEN)
