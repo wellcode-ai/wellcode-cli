@@ -80,6 +80,7 @@ def get_linear_metrics(start_date, end_date, user_filter=None):
     }
 
     for issue in all_issues:
+        print(issue)
         if issue['completedAt']:
             created_at = datetime.fromisoformat(issue['createdAt'].replace('Z', '+00:00'))
             completed_at = datetime.fromisoformat(issue['completedAt'].replace('Z', '+00:00'))
@@ -95,15 +96,15 @@ def get_linear_metrics(start_date, end_date, user_filter=None):
                 metrics['user_contributions'][user]['completed'] += 1
 
         priority = issue.get('priority')
-        if priority is None:
+        if priority == 0:
             metrics['priority_breakdown']['No Priority'] += 1
-        elif priority == 0:
-            metrics['priority_breakdown']['Urgent'] += 1
         elif priority == 1:
-            metrics['priority_breakdown']['High'] += 1
+            metrics['priority_breakdown']['Urgent'] += 1
         elif priority == 2:
-            metrics['priority_breakdown']['Medium'] += 1
+            metrics['priority_breakdown']['High'] += 1
         elif priority == 3:
+            metrics['priority_breakdown']['Medium'] += 1
+        elif priority == 4:
             metrics['priority_breakdown']['Low'] += 1
 
     if metrics['cycle_time']:
