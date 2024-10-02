@@ -1,0 +1,7 @@
+PyGithub
+slackclient
+python-dotenv
+pandas
+anthropic
+slack_sdk
+splitio_client
