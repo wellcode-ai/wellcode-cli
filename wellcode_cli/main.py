@@ -6,7 +6,7 @@ import argparse
 
 # Import configuration
 try:
-    from .config import GITHUB_ORG, GITHUB_TOKEN, LINEAR_API_KEY, SPLIT_API_KEY
+    from .config import GITHUB_ORG, GITHUB_TOKEN, LINEAR_API_KEY, SPLIT_API_KEY,ANTHROPIC_API_KEY
 except ImportError: 
     raise ImportError("Failed to import configuration. Ensure config.py exists and is properly set up.")
 
