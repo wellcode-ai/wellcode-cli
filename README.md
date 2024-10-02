@@ -4,7 +4,7 @@
 
 wellcode.ai is a powerful script that integrates with GitHub, Linear, and Split.io to gather and analyze engineering team metrics. It helps identify productivity trends, potential blockers, and provides AI-powered insights into team performance.
 
-## Our Mission
+## Our Mistestsion
 
 At [wellcode.ai](https://wellcode.ai), our goal is to democratize free metrics for engineering teams, enabling them to improve efficiency and performance. We believe that by providing accessible, data-driven insights, we can empower teams to make informed decisions, optimize their workflows, and foster a culture of continuous improvement.
 
