@@ -1,6 +1,6 @@
 from colorama import Fore, Back, Style
 
-def color_print(text, color=Fore.WHITE, bg_color=Back.BLACK, style=Style.NORMAL, end='\n'):
+def color_print(text, color=Fore.WHITE, bg_color=Back.WHITE, style=Style.NORMAL, end='\n'):
     print(f"{style}{bg_color}{color}{text}{Style.RESET_ALL}", end=end)
 
 # Usage examples:
