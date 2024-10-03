@@ -80,7 +80,6 @@ def get_linear_metrics(start_date, end_date, user_filter=None):
     }
 
     for issue in all_issues:
-        print(issue)
         if issue['completedAt']:
             created_at = datetime.fromisoformat(issue['createdAt'].replace('Z', '+00:00'))
             completed_at = datetime.fromisoformat(issue['completedAt'].replace('Z', '+00:00'))
