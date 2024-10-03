@@ -4,6 +4,8 @@ from collections import defaultdict
 import statistics
 from anthropic import Anthropic
 import re
+from .utils import color_print
+from colorama import Fore, Back, Style
 
 # Import configuration
 try:
@@ -17,39 +19,41 @@ client = Anthropic(
 )
 
 def format_ai_response(response):
-    # Extract the content inside the <analysis> tags
-    analysis = re.search(r'<analysis>(.*?)</analysis>', response, re.DOTALL)
-    if not analysis:
-        return "No analysis found in the response."
-    
-    analysis = analysis.group(1)
+    # Try to extract content inside <analysis> tags, but proceed even if not found
+    analysis_match = re.search(r'<analysis>(.*?)</analysis>', response, re.DOTALL)
+    analysis_content = analysis_match.group(1) if analysis_match else response
 
-    # Split the analysis into sections
-    sections = re.findall(r'<(\w+)>(.*?)</\1>', analysis, re.DOTALL)
+    # Split the content into sections, either by XML-like tags or by line breaks
+    sections = re.findall(r'<(\w+)>(.*?)</\1>', analysis_content, re.DOTALL)
+    if not sections:
+        sections = [('general', para.strip()) for para in analysis_content.split('\n') if para.strip()]
 
-    formatted_output = "Analysis:\n\n"
     for section, content in sections:
         # Convert section name to title case and replace underscores with spaces
         section_title = section.replace('_', ' ').title()
-        formatted_output += f"{section_title}:\n"
+        color_print(f"{section_title}:", color=Fore.YELLOW, style=Style.BRIGHT)
         
-        # Split content into paragraphs and number them if necessary
+        # Split content into paragraphs
         paragraphs = content.strip().split('\n')
-        for i, para in enumerate(paragraphs, 1):
+        for para in paragraphs:
             para = para.strip()
             if para:
-                if len(paragraphs) > 1 and not para.startswith(str(i)):
-                    formatted_output += f"{i}. {para}\n"
-                else:
-                    formatted_output += f"{para}\n"
-        formatted_output += "\n"
+                color_print(para)
+        print()
 
-    # Extract and add efficiency score
-    efficiency_score = re.search(r'<efficiency_score>(.*?)</efficiency_score>', response, re.DOTALL)
-    if efficiency_score:
-        formatted_output += f"Efficiency Score: {efficiency_score.group(1).strip()}/10\n"
+    # Try to extract efficiency score, but don't fail if not found
+    efficiency_score_match = re.search(r'<efficiency_score>(.*?)</efficiency_score>', response, re.DOTALL)
+    if efficiency_score_match:
+        score = efficiency_score_match.group(1).strip()
+        color_print("Efficiency Score: ", color=Fore.MAGENTA, style=Style.BRIGHT, end='')
+        color_print(f"{score}/10", color=Fore.WHITE, style=Style.BRIGHT)
+    else:
+        # Try to find a line that looks like an efficiency score
+        score_line = re.search(r'efficiency.*?score.*?(\d+(/|\s*out of\s*)10)', response, re.IGNORECASE)
+        if score_line:
+            color_print("Efficiency Score: ", color=Fore.MAGENTA, style=Style.BRIGHT, end='')
+            color_print(score_line.group(1), color=Fore.WHITE, style=Style.BRIGHT)
 
-    return formatted_output
 
 def get_ai_analysis(all_metrics):
     prompt = f"""

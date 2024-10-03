@@ -76,7 +76,7 @@ def main():
     if not ANTHROPIC_API_KEY:
         color_print("ANTHROPIC_API_KEY not found in configuration, no AI analysis will be fetched", Fore.YELLOW)
     else:
-        color_print("\nAI Analysis:", Fore.GREEN, style=Style.BRIGHT)
+        color_print("\nAnalysis:", Fore.GREEN, style=Style.BRIGHT)
         print(format_ai_response(get_ai_analysis(all_metrics)))
 
 if __name__ == "__main__":
