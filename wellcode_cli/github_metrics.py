@@ -41,19 +41,31 @@ def format_ai_response(response):
                 color_print(para)
         print()
 
-    # Try to extract efficiency score, but don't fail if not found
+    # Try to extract efficiency score and justification
     efficiency_score_match = re.search(r'<efficiency_score>(.*?)</efficiency_score>', response, re.DOTALL)
+    efficiency_justification_match = re.search(r'<efficiency_score_justification>(.*?)</efficiency_score_justification>', response, re.DOTALL)
+    
     if efficiency_score_match:
         score = efficiency_score_match.group(1).strip()
         color_print("Efficiency Score: ", color=Fore.MAGENTA, style=Style.BRIGHT, end='')
         color_print(f"{score}/10", color=Fore.WHITE, style=Style.BRIGHT)
+        
+        if efficiency_justification_match:
+            justification = efficiency_justification_match.group(1).strip()
+            color_print("\nJustification:", color=Fore.YELLOW, style=Style.BRIGHT)
+            color_print(justification)
     else:
         # Try to find a line that looks like an efficiency score
         score_line = re.search(r'efficiency.*?score.*?(\d+(/|\s*out of\s*)10)', response, re.IGNORECASE)
         if score_line:
             color_print("Efficiency Score: ", color=Fore.MAGENTA, style=Style.BRIGHT, end='')
             color_print(score_line.group(1), color=Fore.WHITE, style=Style.BRIGHT)
-
+        
+        # Try to find justification even if score is not in expected format
+        justification_line = re.search(r'justification:?\s*(.*)', response, re.IGNORECASE)
+        if justification_line:
+            color_print("\nJustification:", color=Fore.YELLOW, style=Style.BRIGHT)
+            color_print(justification_line.group(1))
 
 def get_ai_analysis(all_metrics):
     prompt = f"""
@@ -120,7 +132,7 @@ After completing your analysis, provide a justification for an efficiency score,
 Ensure that your efficiency score aligns with your overall analysis and is supported by the metrics provided.
 """
     message = client.messages.create(
-        max_tokens=1024,
+        max_tokens=2048,
         messages=[
             {
                 "role": "user",
