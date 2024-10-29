@@ -141,7 +141,9 @@ Ensure that your efficiency score aligns with your overall analysis and is suppo
         ],
         model="claude-3-5-sonnet-20240620",
     )
-    return message.content[0].text
+    
+    # Return just the content without printing anything
+    return message.content[0].text if message.content else ""
 
 def get_github_metrics(org_name, start_date, end_date, user_filter=None):
     # Initialize GitHub client using token from config

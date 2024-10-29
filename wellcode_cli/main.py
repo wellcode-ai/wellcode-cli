@@ -20,12 +20,22 @@ def main():
     parser = argparse.ArgumentParser(description="Get GitHub metrics")
     parser.add_argument("--user", help="GitHub username to filter by", default=None)
     parser.add_argument('--version', action='version', version=f'%(prog)s {__version__}')
+    parser.add_argument('--start-date', 
+                       help="Start date in YYYY-MM-DD format. Defaults to beginning of current week",
+                       type=lambda s: datetime.strptime(s, '%Y-%m-%d').date(),
+                       default=None)
+    parser.add_argument('--end-date',
+                       help="End date in YYYY-MM-DD format. Defaults to today",
+                       type=lambda s: datetime.strptime(s, '%Y-%m-%d').date(),
+                       default=None)
     args = parser.parse_args()
+    
+    # Use provided dates or fall back to defaults
+    end_date = args.end_date or datetime.now().date()
+    start_date = args.start_date or (end_date - timedelta(days=end_date.weekday()))
+
     user_filter = args.user
  
-    end_date = datetime.now().date()
-    start_date = end_date - timedelta(days=end_date.weekday())
-
     all_metrics = {}
 
     color_print(f"Analyzing metrics from {start_date} to {end_date}", Fore.CYAN)
