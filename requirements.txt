@@ -1,0 +1,13 @@
+PyGithub
+slackclient
+python-dotenv
+pandas
+anthropic
+slack_sdk
+splitio_client
+setuptools
+colorama
+rich-click>=1.6.1
+rich>=13.3.5
+plotly
+markdown
