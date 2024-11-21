@@ -586,13 +586,13 @@ def display_github_metrics(metrics):
     main_table.add_column("Metric", style="cyan")
     main_table.add_column("Value", justify="right")
     
-    main_table.add_row("Total PRs Created", str(metrics.get('prs_created', 0)))
-    main_table.add_row("Total PRs Merged", str(metrics.get('prs_merged', 0)))
-    main_table.add_row("PRs Merged to Main", str(metrics.get('prs_merged_to_main', 0)))
+    main_table.add_row("Pull Requests Created (Total)", str(metrics.get('prs_created', 0)))
+    main_table.add_row("Pull Requests Merged (Total)", str(metrics.get('prs_merged', 0)))
+    main_table.add_row("Pull Requests Merged to Main Branch", str(metrics.get('prs_merged_to_main', 0)))
     if metrics.get('deployment_frequency'):
-        main_table.add_row("Deployment Frequency", f"{metrics['deployment_frequency']:.2f}/day")
+        main_table.add_row("Deployments per Day", f"{metrics['deployment_frequency']:.2f}/day")
     if metrics.get('median_lead_time'):
-        main_table.add_row("Median Lead Time", f"{metrics['median_lead_time']:.1f} hours")
+        main_table.add_row("Median Time from Creation to Merge", f"{metrics['median_lead_time']:.1f} hours")
     
     console.print(main_table)
 
@@ -608,9 +608,9 @@ def display_github_metrics(metrics):
         # Safely calculate averages with error handling
         try:
             avg_time_to_review = statistics.mean(review_metrics['time_to_first_review']) if review_metrics.get('time_to_first_review') else 0
-            review_table.add_row("Avg Time to First Review", f"{avg_time_to_review:.1f} hours")
+            review_table.add_row("Average Time Until First Review", f"{avg_time_to_review:.1f} hours")
         except statistics.StatisticsError:
-            review_table.add_row("Avg Time to First Review", "N/A")
+            review_table.add_row("Average Time Until First Review", "N/A")
             
         try:
             avg_review_cycles = statistics.mean(review_metrics['review_cycles']) if review_metrics.get('review_cycles') else 0
@@ -643,9 +643,9 @@ def display_github_metrics(metrics):
         
         try:
             avg_changes = statistics.mean(code_quality['changes_per_pr']) if code_quality.get('changes_per_pr') else 0
-            quality_table.add_row("Avg Changes per PR", f"{avg_changes:.0f} lines")
+            quality_table.add_row("Average Lines Changed per Pull Request", f"{avg_changes:.0f} lines")
         except statistics.StatisticsError:
-            quality_table.add_row("Avg Changes per PR", "N/A")
+            quality_table.add_row("Average Lines Changed per Pull Request", "N/A")
             
         try:
             avg_files = statistics.mean(code_quality['files_changed_per_pr']) if code_quality.get('files_changed_per_pr') else 0
@@ -677,8 +677,8 @@ def display_github_metrics(metrics):
         except statistics.StatisticsError:
             collab_table.add_row("Avg Review Comments", "N/A")
         
-        collab_table.add_row("Self-Merged PRs", str(collaboration.get('self_merges', 0)))
-        collab_table.add_row("Cross-Team Reviews", str(collaboration.get('cross_team_reviews', 0)))
+        collab_table.add_row("Self-Merged Pull Requests", str(collaboration.get('self_merges', 0)))
+        collab_table.add_row("Cross-Team Review Count", str(collaboration.get('cross_team_reviews', 0)))
         
         console.print(collab_table)
 
@@ -691,9 +691,9 @@ def display_github_metrics(metrics):
         
         timing = metrics['timing_metrics'].get('merge_time_distribution', {})
         
-        timing_table.add_row("Business Hours", str(timing.get('business_hours', 0)))
-        timing_table.add_row("After Hours", str(timing.get('after_hours', 0)))
-        timing_table.add_row("Weekends", str(timing.get('weekends', 0)))
+        timing_table.add_row("Merges During Business Hours (9-5)", str(timing.get('business_hours', 0)))
+        timing_table.add_row("Merges After Business Hours", str(timing.get('after_hours', 0)))
+        timing_table.add_row("Merges During Weekends", str(timing.get('weekends', 0)))
         
         console.print(timing_table)
 
@@ -706,8 +706,8 @@ def display_github_metrics(metrics):
         
         bottlenecks = metrics['bottleneck_metrics']
         
-        bottleneck_table.add_row("Stale PRs", str(bottlenecks.get('stale_prs', 0)))
-        bottleneck_table.add_row("Long-Running PRs", str(bottlenecks.get('long_running_prs', 0)))
+        bottleneck_table.add_row("Stale Pull Requests (>7 days)", str(bottlenecks.get('stale_prs', 0)))
+        bottleneck_table.add_row("Long-Running Pull Requests (>14 days)", str(bottlenecks.get('long_running_prs', 0)))
         
         try:
             wait_times = bottlenecks.get('review_wait_time', [])
@@ -726,8 +726,8 @@ def display_github_metrics(metrics):
         console.print("\n[bold magenta]User Contributions[/]")
         user_table = Table(show_header=True, header_style="bold magenta")
         user_table.add_column("User", style="cyan")
-        user_table.add_column("PRs Created", justify="right")
-        user_table.add_column("PRs Merged", justify="right")
+        user_table.add_column("Pull Requests Created", justify="right")
+        user_table.add_column("Pull Requests Merged", justify="right")
         
         # Sort users by number of PRs created
         sorted_users = sorted(
@@ -754,11 +754,11 @@ def display_github_metrics(metrics):
     try:
         if metrics.get('time_to_merge'):
             avg_time = statistics.mean(metrics['time_to_merge'])
-            summary_table.add_row("Avg Time to Merge", f"{avg_time:.1f} hours")
+            summary_table.add_row("Average Time from Creation to Merge", f"{avg_time:.1f} hours")
         else:
-            summary_table.add_row("Avg Time to Merge", "N/A")
+            summary_table.add_row("Average Time from Creation to Merge", "N/A")
     except statistics.StatisticsError:
-        summary_table.add_row("Avg Time to Merge", "N/A")
+        summary_table.add_row("Average Time from Creation to Merge", "N/A")
     
     try:
         if metrics.get('lead_times'):

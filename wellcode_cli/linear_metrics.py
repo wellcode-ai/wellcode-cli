@@ -27,7 +27,6 @@ def get_linear_metrics(start_date, end_date, user_filter=None):
         after: $after
         filter: {
           createdAt: { gte: "%s", lte: "%s" }
-          # Add state filtering here
         }
       ) {
         pageInfo {
@@ -40,7 +39,9 @@ def get_linear_metrics(start_date, end_date, user_filter=None):
           createdAt
           completedAt
           priority
-          state {     # Add state information
+          estimate
+          startedAt
+          state {
             name
             type
           }
@@ -84,7 +85,15 @@ def get_linear_metrics(start_date, end_date, user_filter=None):
             'Low': 0,
             'No Priority': 0
         },
-        'state_breakdown': {}
+        'state_breakdown': {},
+        'estimation_accuracy': {
+            'total_estimated': 0,
+            'total_actual': 0,
+            'accurate_estimates': 0,
+            'underestimates': 0,
+            'overestimates': 0,
+            'estimation_variance': []  # Store % difference for each issue
+        }
     }
 
     for issue in all_issues:
@@ -123,6 +132,31 @@ def get_linear_metrics(start_date, end_date, user_filter=None):
             metrics['priority_breakdown']['Medium'] += 1
         elif priority == 4:
             metrics['priority_breakdown']['Low'] += 1
+
+        # Calculate estimation accuracy using time between started and completed
+        estimate = issue.get('estimate')
+        started_at = issue.get('startedAt')
+        completed_at = issue.get('completedAt')
+        
+        if estimate and started_at and completed_at and issue['state']['type'] == 'completed':
+            metrics['estimation_accuracy']['total_estimated'] += 1
+            
+            # Calculate actual time in hours
+            started = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
+            completed = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
+            actual_time = (completed - started).total_seconds() / 3600  # Convert to hours
+            
+            # Calculate variance percentage
+            variance_percent = ((actual_time - estimate) / estimate) * 100
+            metrics['estimation_accuracy']['estimation_variance'].append(variance_percent)
+            
+            # Categorize accuracy (within 20% is considered accurate)
+            if abs(variance_percent) <= 20:
+                metrics['estimation_accuracy']['accurate_estimates'] += 1
+            elif variance_percent > 20:
+                metrics['estimation_accuracy']['underestimates'] += 1
+            else:
+                metrics['estimation_accuracy']['overestimates'] += 1
 
     # Calculate average cycle time with validation
     if metrics['cycle_time']:
@@ -186,4 +220,42 @@ def display_linear_metrics(metrics):
                 str(contribution.get('completed', 0))
             )
         console.print(user_table)
+
+    # Add Estimation Accuracy section
+    if 'estimation_accuracy' in metrics and metrics['estimation_accuracy']['total_estimated'] > 0:
+        console.print("\n[bold magenta]Estimation Accuracy:[/]")
+        estimation_table = Table(show_header=True, header_style="bold magenta")
+        estimation_table.add_column("Metric", style="cyan")
+        estimation_table.add_column("Value", justify="right")
+        
+        total = metrics['estimation_accuracy']['total_estimated']
+        accurate = metrics['estimation_accuracy']['accurate_estimates']
+        under = metrics['estimation_accuracy']['underestimates']
+        over = metrics['estimation_accuracy']['overestimates']
+        
+        estimation_table.add_row(
+            "Issues with Estimates",
+            str(total)
+        )
+        estimation_table.add_row(
+            "Accurate Estimates (±20%)",
+            f"{accurate} ({(accurate/total)*100:.1f}%)"
+        )
+        estimation_table.add_row(
+            "Underestimated Issues (>20%)",
+            f"{under} ({(under/total)*100:.1f}%)"
+        )
+        estimation_table.add_row(
+            "Overestimated Issues (<-20%)",
+            f"{over} ({(over/total)*100:.1f}%)"
+        )
+        
+        if metrics['estimation_accuracy']['estimation_variance']:
+            avg_variance = sum(metrics['estimation_accuracy']['estimation_variance']) / len(metrics['estimation_accuracy']['estimation_variance'])
+            estimation_table.add_row(
+                "Average Estimation Variance",
+                f"{avg_variance:+.1f}%"
+            )
+        
+        console.print(estimation_table)
 
