@@ -60,15 +60,128 @@ def validate_date(ctx, param, value):
 @click.pass_context
 def cli(ctx):
     """🚀 Wellcode CLI - Engineering Metrics Analysis Tool"""
-    # If no command is provided and config exists, run analyze
     if ctx.invoked_subcommand is None:
-        if CONFIG_FILE.exists():
+        # Start interactive mode by default
+        ctx.invoke(chat_interface)
+
+@cli.command()
+def chat_interface():
+    """Interactive chat interface for Wellcode"""
+    config_data = load_config()
+    
+    if not CONFIG_FILE.exists():
+        console.print("[yellow]First time setup detected. Let's configure your workspace.[/]\n")
+        config()
+    
+    console.print(Panel.fit(
+        "[bold blue]Wellcode.ai[/] - Interactive Mode",
+        subtitle=f"v{__version__}",
+        border_style="blue"
+    ))
+    
+    # Initialize Anthropic client if configured
+    client = None
+    if config_data.get('ANTHROPIC_API_KEY'):
+        client = anthropic.Client(api_key=config_data['ANTHROPIC_API_KEY'])
+    
+    def show_help():
+        console.print("\n[bold cyan]Available Commands:[/]")
+        console.print("• [bold]analyze[/] - Analyze engineering metrics")
+        console.print("  Example: 'analyze my team's performance' or 'show metrics for last week'")
+        console.print("\n• [bold]config[/] - Configure your settings")
+        console.print("  Example: 'setup my workspace' or 'configure integrations'")
+        console.print("\n• [bold]report[/] - Generate visual reports")
+        console.print("  Example: 'create a report' or 'show me charts of recent metrics'")
+        console.print("\n• [bold]review[/] - Generate performance reviews")
+        console.print("  Example: 'review john's performance' or 'generate review for username:john'")
+        console.print("\n• [bold]exit[/] - Exit the application")
+        console.print("\nJust describe what you want to do in natural language!")
+    
+    def execute_command(cmd_str):
+        ctx = click.get_current_context()
+        
+        # Parse the command string into command and args
+        parts = cmd_str.strip().split(' ')
+        command = parts[0].lower()
+        args = parts[1:]
+        
+        # Interactive commands should run without the spinner
+        if command in ['config', 'help']:
+            if command == 'config':
+                ctx.invoke(config)
+            elif command == 'help':
+                show_help()
+            return True  # Indicate that command was handled
+
+        # Non-interactive commands can use the spinner
+        if command == 'analyze':
             ctx.invoke(analyze)
+        elif command == 'report':
+            ctx.invoke(report)
+        elif command == 'review' and args:
+            ctx.invoke(review, github_username=args[0])
         else:
-            console.print("[yellow]No configuration found. Running initial setup...[/]\n")
-            ctx.invoke(config)
-            console.print("\nNow running analysis...\n")
-            ctx.invoke(analyze)
+            console.print("[yellow]Invalid command. Type 'help' for available commands.[/]")
+        return True
+
+    while True:
+        command = Prompt.ask("\n[bold cyan]What would you like to do?[/] (type 'help' for suggestions)")
+        
+        if command.lower() in ['exit', 'quit', 'q']:
+            break
+        
+        if command.lower() in ['help', '?']:
+            show_help()
+            continue
+            
+        if client:
+            # Use Claude to interpret the natural language command
+            with console.status("[bold green]Processing command..."):
+                response = client.messages.create(
+                    model="claude-3-sonnet-20240229",
+                    max_tokens=1024,
+                    messages=[{
+                        "role": "user",
+                        "content": f"Convert this natural language request into a Wellcode CLI command: {command}"
+                    }],
+                    system="""You are a CLI command interpreter. Convert natural language to one of these commands:
+                    - analyze
+                    - config
+                    - report
+                    - review <github_username>
+                    
+                    Respond ONLY with the command string, nothing else. For example:
+                    - "show me recent metrics" → "analyze"
+                    - "review john's performance" → "review john"
+                    - "setup my workspace" → "config"
+                    - "generate charts" → "report"
+                    
+                    If you can't map the request to a command, respond with "help"."""
+                )
+                
+                interpreted_command = response.content[0].text.strip()
+            
+            # Execute command without spinner for interactive commands
+            try:
+                execute_command(interpreted_command)
+            except Exception as e:
+                console.print(f"[red]Error executing command: {str(e)}[/]")
+        else:
+            # Basic command matching without AI
+            if 'help' in command.lower():
+                show_help()
+            elif 'config' in command.lower():
+                execute_command('config')
+            elif 'analyze' in command.lower():
+                with console.status("[bold green]Processing..."): 
+                    execute_command('analyze')
+            elif 'report' in command.lower():
+                with console.status("[bold green]Processing..."): 
+                    execute_command('report')
+            elif 'review' in command.lower():
+                console.print("[yellow]Please use 'review <github_username>' for performance reviews[/]")
+            else:
+                console.print("[yellow]Available commands: analyze, config, report, review[/]")
 
 @cli.command()
 def config():
