@@ -14,6 +14,7 @@ import statistics
 from .github_metrics import get_github_metrics, format_ai_response, get_ai_analysis, display_github_metrics
 from .linear_metrics import get_linear_metrics, display_linear_metrics
 from .split_metrics import get_split_metrics, display_split_metrics
+from .performance_review import generate_performance_review
 from wellcode_cli import __version__
 from .utils import save_analysis_data, get_latest_analysis
 import anthropic
@@ -658,6 +659,35 @@ def report(output, format):
     except Exception as e:
         console.print(f"[red]Error generating report: {str(e)}[/]")
         raise
+
+@cli.command()
+@click.argument('github_username')
+@click.option('--linear-username', '-l', help='Linear username (if different from GitHub username)')
+@click.option('--days', '-d', default=30, help='Number of days to analyze')
+def review(github_username, linear_username, days):
+    """Generate a performance review for a specific user
+    
+    GITHUB_USERNAME: GitHub username of the person to review
+    """
+    config_data = load_config()
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    
+    console.print(Panel.fit(
+        "[bold blue]Wellcode.ai[/] - Performance Review Generator",
+        subtitle=f"v{__version__}",
+        border_style="blue"
+    ))
+    
+    with console.status("[bold green]Gathering metrics...") as status:
+        status.update("Fetching GitHub metrics...")
+        github_metrics = get_github_metrics(config_data['GITHUB_ORG'], start_date, end_date, user_filter=github_username)
+        
+        status.update("Fetching Linear metrics...")
+        linear_metrics = get_linear_metrics(start_date, end_date, user_filter=linear_username or github_username)
+        
+        status.update("Generating review...")
+        generate_performance_review(github_metrics, linear_metrics, github_username, linear_username)
 
 def main():
     cli()
