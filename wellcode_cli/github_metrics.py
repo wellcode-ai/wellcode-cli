@@ -167,10 +167,10 @@ Ensure that your efficiency score aligns with your overall analysis and is suppo
     # Return just the content without printing anything
     return message.content[0].text if message.content else ""
 
-def get_repo_metrics(repo, start_date, end_date, user_filter):
+def get_repo_metrics(repo, start_date, end_date, user_filter, team_filter, team_members=None):
     """Process a single repository's metrics with retry logic"""
     max_retries = 3
-    base_delay = 30  # Start with 30 seconds delay
+    base_delay = 30
     
     for attempt in range(max_retries):
         try:
@@ -219,7 +219,7 @@ def get_repo_metrics(repo, start_date, end_date, user_filter):
             pulls = repo.get_pulls(state='all')
             for pr in pulls:
                 try:
-                    process_pr(pr, repo_metrics, start_date, end_date, user_filter)
+                    process_pr(pr, repo_metrics, start_date, end_date, user_filter, team_filter, team_members)
                 except Exception as e:
                     if "403" in str(e) and "rate limit" in str(e).lower():
                         # Calculate exponential backoff delay
@@ -245,9 +245,13 @@ def get_repo_metrics(repo, start_date, end_date, user_filter):
 
     return None
 
-def process_pr(pr, repo_metrics, start_date, end_date, user_filter):
+def process_pr(pr, repo_metrics, start_date, end_date, user_filter, team_filter, team_members=None):
     """Process a single PR with proper merge detection"""
     try:
+        # Skip if team filter is active and author is not in team
+        if team_filter and pr.user and pr.user.login not in (team_members or set()):
+            return
+        
         # Convert GitHub timestamps to naive datetimes by removing timezone info
         created_at = pr.created_at.replace(tzinfo=None)
         merged_at = pr.merged_at.replace(tzinfo=None) if pr.merged_at else None
@@ -488,10 +492,35 @@ def merge_metrics(metrics_list):
     
     return combined_metrics
 
-def get_github_metrics(org_name, start_date, end_date, user_filter=None):
+def get_github_metrics(org_name, start_date, end_date, user_filter=None, team_filter=None):
     g = Github(GITHUB_TOKEN)
     org = g.get_organization(org_name)
     
+    # Fetch team members first if team filter is specified
+    team_members = set()
+    if team_filter:
+        try:
+            teams = list(org.get_teams())
+            console.print(f"[yellow]There are {len(teams)} teams[/]")
+            for t in teams:
+                console.print(f"[yellow]Team: {t.name} (slug: {t.slug})[/]")
+            
+            # Try to find team by name if slug fails
+            team = None
+            for t in teams:
+                if t.name.lower() == team_filter.lower() or t.slug.lower() == team_filter.lower():
+                    team = t
+                    break
+                    
+            if team:
+                team_members = {member.login for member in team.get_members(role='all')}
+                console.print(f"[yellow]Found {len(team_members)} team members[/]")
+            else:
+                console.print(f"[yellow]Team '{team_filter}' not found[/]")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Could not fetch team members for {team_filter}: {str(e)}[/]")
+            console.print(f"[yellow]Error type: {type(e).__name__}[/]")
+
     start_date = ensure_datetime(start_date)
     end_date = ensure_datetime(end_date)
 
@@ -501,8 +530,9 @@ def get_github_metrics(org_name, start_date, end_date, user_filter=None):
         TextColumn("[progress.description]{task.description}"),
         transient=True,
     ) as progress:
-        progress.add_task(description="Fetching repositories...", total=None)
+        progress.add_task(description="[yellow]Fetching repositories...[/]", total=None)
         repos = list(org.get_repos())
+        console.print(f"[yellow]Found {len(repos)} repositories[/]")
     
     # Process repositories in parallel
     with Progress(
@@ -510,16 +540,17 @@ def get_github_metrics(org_name, start_date, end_date, user_filter=None):
         TextColumn("[progress.description]{task.description}"),
         transient=True,
     ) as progress:
-        progress.add_task(description="Processing repositories...", total=None)
+        task = progress.add_task(description="Processing repositories...", total=None)
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
             future_to_repo = {
-                executor.submit(get_repo_metrics, repo, start_date, end_date, user_filter): repo
+                executor.submit(get_repo_metrics, repo, start_date, end_date, user_filter, team_filter, team_members): repo
                 for repo in repos
             }
             
             metrics_list = []
             for future in concurrent.futures.as_completed(future_to_repo):
                 repo = future_to_repo[future]
+                console.print(f"[yellow]Processing repository: {repo.name}[/]")
                 try:
                     metrics = future.result()
                     metrics_list.append(metrics)

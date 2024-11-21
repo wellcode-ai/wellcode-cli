@@ -135,7 +135,8 @@ def config():
 @click.option('--start-date', '-s', type=click.DateTime(), help='Start date for analysis (YYYY-MM-DD)')
 @click.option('--end-date', '-e', type=click.DateTime(), help='End date for analysis (YYYY-MM-DD)')
 @click.option('--user', '-u', help='Filter by GitHub username')
-def analyze(start_date, end_date, user):
+@click.option('--team', '-t', help='Filter by GitHub team name')
+def analyze(start_date, end_date, user, team):
     """Analyze engineering metrics"""
     # Handle end date
     if end_date is None:
@@ -179,7 +180,7 @@ def analyze(start_date, end_date, user):
         # GitHub metrics
         if config_data.get('GITHUB_TOKEN'):
             status.update("Fetching GitHub metrics...")
-            metrics = get_github_metrics(config_data['GITHUB_ORG'], start_date, end_date, user)
+            metrics = get_github_metrics(config_data['GITHUB_ORG'], start_date, end_date, user, team)
             all_metrics['github'] = metrics
             display_github_metrics(metrics)
         else:
