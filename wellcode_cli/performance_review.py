@@ -3,6 +3,7 @@ from rich.panel import Panel
 from rich.console import Console
 from datetime import datetime, timedelta
 from anthropic import Anthropic
+from textwrap import fill
 # Import configuration
 try:
     from .config import ANTHROPIC_API_KEY 
@@ -17,11 +18,60 @@ client = Anthropic(
     # This is the default and can be omitted
     api_key=ANTHROPIC_API_KEY,
 )
+def format_ai_response(response):
+    """Format AI response with proper Rich formatting"""
+    if not response:
+        return
+        
+    try:
+        # Handle string response from Claude
+        text = str(response)
+        
+        # Split into sections and format
+        sections = text.split('\n\n')
+        
+        for section in sections:
+            if not section.strip():
+                continue
+                
+            # Format section titles (numbered sections)
+            if section.startswith(('1.', '2.', '3.', '4.')):
+                title, content = section.split(':', 1)
+                console.print(f"\n[bold cyan]{title.strip()}:[/]")
+                
+                # Format the content
+                lines = content.strip().split('\n')
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith('-'):
+                        # Format bullet points
+                        console.print(f"  [cyan]•[/] {line[1:].strip()}")
+                    else:
+                        # Format regular text with proper wrapping
+                        wrapped_text = fill(line, width=100)
+                        console.print(wrapped_text)
+            else:
+                # Handle non-sectioned text
+                console.print(section.strip())
+                
+    except Exception as e:
+        console.print(f"\n[yellow]Using simplified formatting: {str(e)}[/]")
+        try:
+            console.print(str(response).replace('\n\n', '\n'))
+        except:
+            console.print("[red]Error: Unable to display AI response[/]")
+
 def generate_performance_review(github_metrics, linear_metrics, github_username, linear_username=None):
     """Generate a comprehensive performance review for a specific user"""
     
     linear_username = linear_username or github_username
     
+    # Initialize metrics variables with defaults
+    user_stats = {'created': 0, 'merged': 0}
+    user_stats_linear = {'completed': 0}
+    avg_changes = 0
+    reviews_given = 0
+
     # Calculate review period
     end_date = datetime.now()
     start_date = end_date - timedelta(days=30)
@@ -29,7 +79,7 @@ def generate_performance_review(github_metrics, linear_metrics, github_username,
 
     console.print(Panel.fit(
         "[bold blue]Performance Review[/]",
-        subtitle=f"GitHub: {github_username} | Linear: {linear_username} | Period: {period}",
+        subtitle=f"GitHub: {github_username}",
         border_style="blue"
     ))
 
@@ -40,14 +90,16 @@ def generate_performance_review(github_metrics, linear_metrics, github_username,
     code_table.add_column("Value", justify="right")
     
     if github_metrics and 'user_contributions' in github_metrics:
-        user_stats = github_metrics['user_contributions'].get(github_username, {})
+        user_stats = github_metrics['user_contributions'].get(github_username, {'created': 0, 'merged': 0})
         code_table.add_row("Pull Requests Created", str(user_stats.get('created', 0)))
         code_table.add_row("Pull Requests Merged", str(user_stats.get('merged', 0)))
         
         # Calculate PR size and complexity metrics
         if 'code_quality' in github_metrics:
-            avg_changes = sum(github_metrics['code_quality']['changes_per_pr']) / len(github_metrics['code_quality']['changes_per_pr']) if github_metrics['code_quality']['changes_per_pr'] else 0
-            code_table.add_row("Average PR Size", f"{avg_changes:.0f} lines")
+            changes_per_pr = github_metrics['code_quality'].get('changes_per_pr', [])
+            if changes_per_pr:
+                avg_changes = sum(changes_per_pr) / len(changes_per_pr)
+                code_table.add_row("Average PR Size", f"{avg_changes:.0f} lines")
     
     console.print(code_table)
 
@@ -58,7 +110,7 @@ def generate_performance_review(github_metrics, linear_metrics, github_username,
     delivery_table.add_column("Value", justify="right")
     
     if linear_metrics and 'user_contributions' in linear_metrics:
-        user_stats_linear = linear_metrics['user_contributions'].get(linear_username, {})
+        user_stats_linear = linear_metrics['user_contributions'].get(linear_username, {'completed': 0})
         delivery_table.add_row("Issues Completed", str(user_stats_linear.get('completed', 0)))
         
         # Add estimation accuracy if available
@@ -73,25 +125,47 @@ def generate_performance_review(github_metrics, linear_metrics, github_username,
     
     console.print(delivery_table)
 
-    # 3. Collaboration & Review Section
+    # 3. Collaboration & Code Review Section
     console.print("\n[bold magenta]3. Collaboration & Code Review[/]")
     collab_table = Table(show_header=True, header_style="bold magenta")
     collab_table.add_column("Metric", style="cyan")
     collab_table.add_column("Value", justify="right")
     
-    if github_metrics and 'review_metrics' in github_metrics:
-        review_stats = github_metrics['review_metrics']
-        if github_username in review_stats.get('reviewers_per_pr', {}):
-            reviews_given = len(review_stats['reviewers_per_pr'][github_username])
-            collab_table.add_row("Reviews Provided", str(reviews_given))
+    # Initialize with zero values
+    reviews_given = 0
+    review_comments = 0
     
-    console.print(collab_table)
+    if github_metrics and 'review_metrics' in github_metrics:
+        review_stats = github_metrics.get('review_metrics', {})
+        
+        # Count reviews given
+        reviewers_per_pr = review_stats.get('reviewers_per_pr', {})
+        if github_username in reviewers_per_pr:
+            reviews_given = len(reviewers_per_pr[github_username])
+            collab_table.add_row("Reviews Provided", str(reviews_given))
+            
+        # Count review comments
+        review_comments_per_pr = review_stats.get('review_comments_per_pr', {})
+        if github_username in review_comments_per_pr:
+            review_comments = len(review_comments_per_pr[github_username])
+            collab_table.add_row("Review Comments", str(review_comments))
+            
+        # Add average review time if available
+        review_time = review_stats.get('average_review_time', {}).get(github_username)
+        if review_time:
+            collab_table.add_row("Avg. Review Time", f"{review_time:.1f} hours")
+    
+    # Only print the table if we have data
+    if reviews_given > 0 or review_comments > 0:
+        console.print(collab_table)
+    else:
+        console.print("[dim]No code review activity in this period[/]")
 
     # 4. AI Analysis Section
     console.print("\n[bold magenta]4. AI Analysis & Recommendations[/]")
     
     analysis_prompt = f"""
-    Based on the following metrics for GitHub user '{github_username}' and Linear user '{linear_username}' over the last 30 days:
+    Based on the following metrics for GitHub user '{github_username}' over the last 30 days:
 
     Code Contributions (GitHub):
     - Created {user_stats.get('created', 0)} Pull Requests
@@ -100,7 +174,7 @@ def generate_performance_review(github_metrics, linear_metrics, github_username,
 
     Project Delivery (Linear):
     - Completed {user_stats_linear.get('completed', 0)} issues
-    - Provided {reviews_given if 'reviews_given' in locals() else 0} code reviews
+    - Provided {reviews_given} code reviews
 
     Please provide:
     1. A brief assessment of their performance and impact
@@ -112,45 +186,44 @@ def generate_performance_review(github_metrics, linear_metrics, github_username,
     Keep each section concise and actionable.
     """
     
-    try:
-        ai_analysis = get_ai_analysis(analysis_prompt)
-        console.print(Panel(ai_analysis, border_style="blue"))
-    except Exception as e:
-        console.print("[yellow]AI analysis unavailable at this time.[/]")
-        console.print(f"[red]Error: {str(e)}[/]")
+    with console.status("[bold green]Generating AI analysis...") as status:
+        try:
+            ai_analysis = get_ai_analysis(analysis_prompt)
+            if ai_analysis:
+                format_ai_response(ai_analysis)
+            else:
+                console.print("[yellow]AI analysis unavailable at this time.[/]")
+        except Exception as e:
+            console.print(f"[yellow]Error generating AI analysis: {str(e)}[/]")
 
     # 5. Summary Section
     console.print("\n[bold magenta]5. Key Takeaways & Next Steps[/]")
-    summary_table = Table(show_header=False, box=None)
-    summary_table.add_column("", style="cyan")
-    
-    # Add key metrics summary
-    summary_table.add_row("🎯 Key Achievements:")
-    summary_table.add_row(f"• Completed {user_stats_linear.get('completed', 0)} issues")
-    summary_table.add_row(f"• Created {user_stats.get('created', 0)} Pull Requests")
-    if 'reviews_given' in locals():
-        summary_table.add_row(f"• Provided {reviews_given} code reviews")
-    
-    console.print(summary_table)
+    console.print(" 🎯 Key Achievements:")
+    console.print(f" • Completed {user_stats_linear.get('completed', 0)} issues")
+    console.print(f" • Created {user_stats.get('created', 0)} Pull Requests")
+    if reviews_given > 0:
+        console.print(f" • Provided {reviews_given} code reviews")
 
     return True
 
 def get_ai_analysis(prompt):
-    """Get AI analysis using Anthropic's Claude"""
+    """Get AI analysis using Claude"""
     try:
-        response = client.messages.create(
+        response = client.messages.create(        
             model="claude-3-sonnet-20240229",
-            max_tokens=1000,
+            max_tokens=1024,
             temperature=0.7,
             system="You are an experienced engineering manager providing constructive feedback.",
-            messages=[{
-                "role": "user",
-                "content": prompt
-            }]
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
         )
-        
-        return response.content
+        return response.content[0].text
     except Exception as e:
-        raise Exception(f"Failed to get AI analysis: {str(e)}") 
+        console.print(f"[red]Error getting AI analysis: {str(e)}[/]")
+        return None
     
     

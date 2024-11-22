@@ -771,3 +771,42 @@ def display_github_metrics(metrics):
     
     console.print(summary_table)
 
+def get_review_metrics(pull_requests):
+    """Extract review metrics from pull requests"""
+    review_metrics = {
+        'reviewers_per_pr': {},
+        'review_comments_per_pr': {},
+        'average_review_time': {}
+    }
+    
+    for pr in pull_requests:
+        # Get reviews
+        reviews = pr.get_reviews()
+        for review in reviews:
+            reviewer = review.user.login
+            
+            # Count reviews per reviewer
+            if reviewer not in review_metrics['reviewers_per_pr']:
+                review_metrics['reviewers_per_pr'][reviewer] = []
+            review_metrics['reviewers_per_pr'][reviewer].append(pr.number)
+            
+            # Count review comments
+            if reviewer not in review_metrics['review_comments_per_pr']:
+                review_metrics['review_comments_per_pr'][reviewer] = []
+            review_metrics['review_comments_per_pr'][reviewer].extend(review.get_comments())
+            
+            # Calculate review time
+            if reviewer not in review_metrics['average_review_time']:
+                review_metrics['average_review_time'][reviewer] = []
+            if pr.created_at and review.submitted_at:
+                review_time = (review.submitted_at - pr.created_at).total_seconds() / 3600  # hours
+                review_metrics['average_review_time'][reviewer].append(review_time)
+    
+    # Calculate averages
+    for reviewer in review_metrics['average_review_time']:
+        times = review_metrics['average_review_time'][reviewer]
+        if times:
+            review_metrics['average_review_time'][reviewer] = sum(times) / len(times)
+    
+    return review_metrics
+
