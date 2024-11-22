@@ -5,6 +5,10 @@ import os
 import pandas as pd
 from collections import defaultdict
 
+from rich.console import Console
+
+console = Console()
+
 class WellcodeJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime):
