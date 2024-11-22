@@ -18,6 +18,7 @@ from .performance_review import generate_performance_review
 from wellcode_cli import __version__
 from .utils import save_analysis_data, get_latest_analysis
 import anthropic
+from anthropic import InternalServerError, APIError, RateLimitError
 
 # Configure rich-click
 click.USE_RICH_MARKUP = True
@@ -320,10 +321,25 @@ def analyze(start_date, end_date, user, team):
 
         # AI Analysis
         if config_data.get('ANTHROPIC_API_KEY'):
-            status.update("Generating AI analysis...")
-            analysis_result = get_ai_analysis(all_metrics)
-            console.print("\n[bold cyan]AI Analysis:[/]")
-            format_ai_response(analysis_result)
+            try:
+                status.update("Generating AI analysis...")
+                analysis_result = get_ai_analysis(all_metrics)
+                console.print("\n[bold cyan]AI Analysis:[/]")
+                format_ai_response(analysis_result)
+            except InternalServerError as e:
+                if "overloaded_error" in str(e):
+                    console.print("\n[yellow]⚠️  Claude is currently overloaded. Analysis will continue without AI insights.[/]")
+                else:
+                    console.print("\n[yellow]⚠️  Claude encountered an internal error. Analysis will continue without AI insights.[/]")
+                console.print("[dim]Error details: " + str(e) + "[/dim]")
+            except RateLimitError:
+                console.print("\n[yellow]⚠️  API rate limit reached. Analysis will continue without AI insights.[/]")
+            except APIError as e:
+                console.print(f"\n[yellow]⚠️  API error occurred: {str(e)}[/]")
+                console.print("Analysis will continue without AI insights.")
+            except Exception as e:
+                console.print(f"\n[red]Unexpected error during AI analysis: {str(e)}[/]")
+                console.print("Analysis will continue without AI insights.")
         else:
             console.print("[yellow]⚠️  AI analysis not configured[/]")
 

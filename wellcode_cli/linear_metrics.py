@@ -1,7 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 from rich.table import Table
 from rich.console import Console
+from dateutil import parser
+from dateutil import tz
 
 console = Console()
 
@@ -88,14 +90,15 @@ def get_linear_metrics(start_date, end_date, user_filter=None):
         'state_breakdown': {},
         'estimation_accuracy': {
             'total_estimated': 0,
-            'total_actual': 0,
             'accurate_estimates': 0,
             'underestimates': 0,
             'overestimates': 0,
-            'estimation_variance': []  # Store % difference for each issue
+            'estimation_variance': [],
+            'estimate_unit': 'points'
         }
     }
 
+    # Process basic metrics
     for issue in all_issues:
         # Track state
         state = issue.get('state', {}).get('name', 'Unknown')
@@ -133,30 +136,39 @@ def get_linear_metrics(start_date, end_date, user_filter=None):
         elif priority == 4:
             metrics['priority_breakdown']['Low'] += 1
 
-        # Calculate estimation accuracy using time between started and completed
-        estimate = issue.get('estimate')
+        # Calculate estimation accuracy for points
+        estimate_points = issue.get('estimate')
         started_at = issue.get('startedAt')
         completed_at = issue.get('completedAt')
         
-        if estimate and started_at and completed_at and issue['state']['type'] == 'completed':
+        if estimate_points and started_at and completed_at and issue['state']['type'] == 'completed':
             metrics['estimation_accuracy']['total_estimated'] += 1
             
-            # Calculate actual time in hours
-            started = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
-            completed = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
-            actual_time = (completed - started).total_seconds() / 3600  # Convert to hours
-            
-            # Calculate variance percentage
-            variance_percent = ((actual_time - estimate) / estimate) * 100
-            metrics['estimation_accuracy']['estimation_variance'].append(variance_percent)
-            
-            # Categorize accuracy (within 20% is considered accurate)
-            if abs(variance_percent) <= 20:
-                metrics['estimation_accuracy']['accurate_estimates'] += 1
-            elif variance_percent > 20:
-                metrics['estimation_accuracy']['underestimates'] += 1
-            else:
-                metrics['estimation_accuracy']['overestimates'] += 1
+            try:
+                started = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
+                completed = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
+                
+                # Calculate working hours between dates
+                working_hours = calculate_work_hours(started, completed)
+                expected_hours = points_to_expected_hours(estimate_points)
+                
+                if working_hours == 0:
+                    continue
+                    
+                # Calculate variance percentage
+                variance_percent = ((working_hours - expected_hours) / expected_hours) * 100
+                metrics['estimation_accuracy']['estimation_variance'].append(variance_percent)
+                
+                # Categorize accuracy (within 20% is considered accurate)
+                if abs(variance_percent) <= 20:
+                    metrics['estimation_accuracy']['accurate_estimates'] += 1
+                elif variance_percent > 20:
+                    metrics['estimation_accuracy']['underestimates'] += 1
+                else:
+                    metrics['estimation_accuracy']['overestimates'] += 1
+                
+            except Exception:
+                pass
 
     # Calculate average cycle time with validation
     if metrics['cycle_time']:
@@ -165,6 +177,9 @@ def get_linear_metrics(start_date, end_date, user_filter=None):
             metrics['average_cycle_time'] = 0
     else:
         metrics['average_cycle_time'] = 0
+
+    # Calculate estimation accuracy
+    metrics['estimation_accuracy'] = calculate_estimation_accuracy(all_issues)
 
     return metrics
 
@@ -223,7 +238,7 @@ def display_linear_metrics(metrics):
 
     # Add Estimation Accuracy section
     if 'estimation_accuracy' in metrics and metrics['estimation_accuracy']['total_estimated'] > 0:
-        console.print("\n[bold magenta]Estimation Accuracy:[/]")
+        console.print("\n[bold magenta]Estimation Accuracy (Story Points):[/]")
         estimation_table = Table(show_header=True, header_style="bold magenta")
         estimation_table.add_column("Metric", style="cyan")
         estimation_table.add_column("Value", justify="right")
@@ -234,7 +249,7 @@ def display_linear_metrics(metrics):
         over = metrics['estimation_accuracy']['overestimates']
         
         estimation_table.add_row(
-            "Issues with Estimates",
+            "Issues with Point Estimates",
             str(total)
         )
         estimation_table.add_row(
@@ -253,9 +268,176 @@ def display_linear_metrics(metrics):
         if metrics['estimation_accuracy']['estimation_variance']:
             avg_variance = sum(metrics['estimation_accuracy']['estimation_variance']) / len(metrics['estimation_accuracy']['estimation_variance'])
             estimation_table.add_row(
-                "Average Estimation Variance",
+                "Average Point Estimation Variance",
                 f"{avg_variance:+.1f}%"
             )
         
         console.print(estimation_table)
+
+def calculate_estimation_accuracy(issues):
+    """Calculate estimation accuracy metrics"""
+    estimated_issues = [i for i in issues if i.get('estimate') and i.get('startedAt') and i.get('completedAt')]
+    
+    if not estimated_issues:
+        return {
+            'total_estimated': 0,
+            'accurate_estimates': 0,
+            'underestimates': 0,
+            'overestimates': 0,
+            'estimation_variance': []
+        }
+
+    accuracy_metrics = {
+        'total_estimated': len(estimated_issues),
+        'accurate_estimates': 0,
+        'underestimates': 0,
+        'overestimates': 0,
+        'estimation_variance': []
+    }
+
+    for issue in estimated_issues:
+        estimate = issue['estimate']
+        started_at = issue['startedAt']
+        completed_at = issue['completedAt']
+        
+        try:
+            started = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
+            completed = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
+            
+            actual_time = calculate_work_hours(started, completed)
+            
+            if actual_time == 0:
+                continue
+                
+            # Calculate variance percentage
+            variance_percent = ((actual_time - estimate) / estimate) * 100
+            accuracy_metrics['estimation_variance'].append(variance_percent)
+            
+            # Categorize accuracy (within 20% is considered accurate)
+            if abs(variance_percent) <= 20:
+                accuracy_metrics['accurate_estimates'] += 1
+            elif variance_percent > 20:
+                accuracy_metrics['underestimates'] += 1
+            else:
+                accuracy_metrics['overestimates'] += 1
+            
+        except Exception:
+            pass
+
+    return accuracy_metrics
+
+def calculate_actual_time(issue):
+    """Calculate actual time spent on an issue in hours"""
+    if not issue.get('completed_at'):
+        return None
+        
+    # Get all cycle times
+    started_at = None
+    completed_at = parser.parse(issue['completed_at'])
+    
+    # Look for the first "In Progress" state
+    for cycle in issue.get('cycle_times', []):
+        if cycle['state'] == 'In Progress':
+            started_at = parser.parse(cycle['started_at'])
+            break
+    
+    if not started_at:
+        return None
+        
+    # Calculate work hours between dates
+    work_hours = calculate_work_hours(started_at, completed_at)
+    return work_hours
+
+def calculate_work_hours(start_date, end_date):
+    """Calculate work hours between two dates, excluding weekends"""
+    if not start_date or not end_date:
+        return 0
+        
+    # Convert to UTC for consistent calculations
+    if start_date.tzinfo:
+        start_date = start_date.astimezone(tz.UTC)
+    if end_date.tzinfo:
+        end_date = end_date.astimezone(tz.UTC)
+    
+    total_hours = 0
+    current_date = start_date
+    
+    while current_date < end_date:
+        if current_date.weekday() < 5:  # Monday to Friday
+            day_end = min(
+                current_date.replace(hour=17, minute=0, second=0, microsecond=0),
+                end_date
+            )
+            day_start = current_date.replace(hour=9, minute=0, second=0, microsecond=0)
+            
+            if day_end > day_start:
+                work_hours = (day_end - day_start).total_seconds() / 3600
+                total_hours += min(8, work_hours)  # Cap at 8 hours per day
+        
+        current_date = current_date.replace(hour=9, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    
+    return total_hours
+
+def calculate_work_points(start_date, end_date):
+    """Calculate work points based on working days between dates"""
+    if not start_date or not end_date:
+        return 0
+        
+    # Convert to UTC for consistent calculations
+    if start_date.tzinfo:
+        start_date = start_date.astimezone(tz.UTC)
+    if end_date.tzinfo:
+        end_date = end_date.astimezone(tz.UTC)
+    
+    # Calculate working days (excluding weekends)
+    total_points = 0
+    current_date = start_date
+    
+    while current_date < end_date:
+        if current_date.weekday() < 5:  # Monday to Friday
+            # Add 1 point per working day
+            total_points += 1
+        
+        # Move to next day
+        current_date = current_date + timedelta(days=1)
+    
+    return total_points
+
+def calculate_working_days(start_date, end_date):
+    """Calculate number of working days between two dates"""
+    if not start_date or not end_date:
+        return 0
+        
+    # Convert to UTC for consistent calculations
+    if start_date.tzinfo:
+        start_date = start_date.astimezone(tz.UTC)
+    if end_date.tzinfo:
+        end_date = end_date.astimezone(tz.UTC)
+    
+    working_days = 0
+    current_date = start_date.date()  # Use date only for day counting
+    end_date = end_date.date()
+    
+    while current_date <= end_date:
+        if current_date.weekday() < 5:  # Monday to Friday
+            working_days += 1
+        current_date += timedelta(days=1)
+    
+    return working_days
+
+def points_to_expected_hours(points):
+    """Convert story points to expected working hours using Fibonacci scale mapping"""
+    HOURS_PER_DAY = 8
+    HOURS_PER_WEEK = 40  # 5 working days
+    
+    POINT_MAPPING = {
+        1: 1,              # 1 point = 1 hour
+        2: 4,              # 2 points = half day
+        3: HOURS_PER_DAY,  # 3 points = 1 day
+        5: HOURS_PER_WEEK, # 5 points = 1 week
+        8: HOURS_PER_WEEK + HOURS_PER_DAY * 5,  # 8 points = 10 working days (2 weeks)
+        13: HOURS_PER_WEEK * 2,  # 13 points = 2 weeks
+    }
+    
+    return POINT_MAPPING.get(points, 0)
 
