@@ -5,7 +5,7 @@ pandas
 anthropic
 slack_sdk
 splitio_client
-setuptools
+setuptools==75.6.0
 colorama
 rich-click>=1.6.1
 rich>=13.3.5
