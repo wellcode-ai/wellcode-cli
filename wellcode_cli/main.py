@@ -10,15 +10,16 @@ import plotly.graph_objects as go
 import webbrowser
 import plotly.io as pio
 import statistics
+import logging
 
 from .github_metrics import get_github_metrics, format_ai_response, get_ai_analysis, display_github_metrics
 from .linear_metrics import get_linear_metrics, display_linear_metrics
 from .split_metrics import get_split_metrics, display_split_metrics
-from .performance_review import generate_performance_review
 from wellcode_cli import __version__
 from .utils import save_analysis_data, get_latest_analysis
 import anthropic
 from anthropic import InternalServerError, APIError, RateLimitError
+from .commands import parse_command, show_help, get_claude_system_prompt, CommandType
 
 # Configure rich-click
 click.USE_RICH_MARKUP = True
@@ -65,6 +66,54 @@ def cli(ctx):
         # Start interactive mode by default
         ctx.invoke(chat_interface)
 
+def execute_command(command_str: str) -> bool:
+    """Execute a parsed command."""
+    try:
+        command_type, args, time_range = parse_command(command_str)
+        ctx = click.get_current_context()
+        
+        if command_type == CommandType.ANALYZE:
+            # Parse dates and user from the command string
+            date_args = {}
+            for arg in args:
+                if '=' in arg:
+                    key, value = arg.split('=', 1)
+                    date_args[key] = value
+            
+            # Parse dates exactly as provided by Claude
+            if '--start-date' in date_args and '--end-date' in date_args:
+                start_date = datetime.strptime(date_args['--start-date'], '%Y-%m-%d')
+                end_date = datetime.strptime(date_args['--end-date'], '%Y-%m-%d')
+                
+                # Ensure end date includes the full day
+                end_date = end_date.replace(hour=23, minute=59, second=59)
+                # Ensure start date starts at beginning of day
+                start_date = start_date.replace(hour=0, minute=0, second=0)
+            else:
+                # Default to last 7 days if no dates provided
+                end_date = datetime.now()
+                start_date = end_date - timedelta(days=7)
+            
+            user = next((args[i+1] for i, arg in enumerate(args) if arg in ['--user', '-u']), None)
+            
+            ctx.invoke(analyze, start_date=start_date, end_date=end_date, user=user, team=None)
+        elif command_type == CommandType.CONFIG:
+            ctx.invoke(config)
+        elif command_type == CommandType.HELP:
+            show_help()
+        elif command_type == CommandType.CHAT:
+            ctx.invoke(chat_interface)
+        elif command_type == CommandType.REPORT:
+            ctx.invoke(report)
+        else:
+            console.print("[yellow]Invalid command. Type 'help' for available commands.[/]")
+            return False
+        return True
+        
+    except Exception as e:
+        console.print(f"[red]Error executing command: {str(e)}[/]")
+        return False
+    
 @cli.command()
 def chat_interface():
     """Interactive chat interface for Wellcode"""
@@ -85,104 +134,48 @@ def chat_interface():
     if config_data.get('ANTHROPIC_API_KEY'):
         client = anthropic.Client(api_key=config_data['ANTHROPIC_API_KEY'])
     
-    def show_help():
-        console.print("\n[bold cyan]Available Commands:[/]")
-        console.print("• [bold]analyze[/] - Analyze engineering metrics")
-        console.print("  Example: 'analyze my team's performance' or 'show metrics for last week'")
-        console.print("\n• [bold]config[/] - Configure your settings")
-        console.print("  Example: 'setup my workspace' or 'configure integrations'")
-        console.print("\n• [bold]report[/] - Generate visual reports")
-        console.print("  Example: 'create a report' or 'show me charts of recent metrics'")
-        console.print("\n• [bold]review[/] - Generate performance reviews")
-        console.print("  Example: 'review john's performance' or 'generate review for username:john'")
-        console.print("\n• [bold]exit[/] - Exit the application")
-        console.print("\nJust describe what you want to do in natural language!")
-    
-    def execute_command(cmd_str):
-        ctx = click.get_current_context()
-        
-        # Parse the command string into command and args
-        parts = cmd_str.strip().split(' ')
-        command = parts[0].lower()
-        args = parts[1:]
-        
-        # Interactive commands should run without the spinner
-        if command in ['config', 'help']:
-            if command == 'config':
-                ctx.invoke(config)
-            elif command == 'help':
-                show_help()
-            return True  # Indicate that command was handled
-
-        # Non-interactive commands can use the spinner
-        if command == 'analyze':
-            ctx.invoke(analyze)
-        elif command == 'report':
-            ctx.invoke(report)
-        elif command == 'review' and args:
-            ctx.invoke(review, github_username=args[0])
-        else:
-            console.print("[yellow]Invalid command. Type 'help' for available commands.[/]")
-        return True
-
     while True:
-        command = Prompt.ask("\n[bold cyan]What would you like to do?[/] (type 'help' for suggestions)")
-        
-        if command.lower() in ['exit', 'quit', 'q']:
-            break
-        
-        if command.lower() in ['help', '?']:
-            show_help()
-            continue
+        try:
+            command = Prompt.ask("\n[bold cyan]What would you like to do?[/] (type 'help' for suggestions)")
             
-        if client:
-            # Use Claude to interpret the natural language command
-            with console.status("[bold green]Processing command..."):
-                response = client.messages.create(
-                    model="claude-3-sonnet-20240229",
-                    max_tokens=1024,
-                    messages=[{
-                        "role": "user",
-                        "content": f"Convert this natural language request into a Wellcode CLI command: {command}"
-                    }],
-                    system="""You are a CLI command interpreter. Convert natural language to one of these commands:
-                    - analyze
-                    - config
-                    - report
-                    - review <github_username>
-                    
-                    Respond ONLY with the command string, nothing else. For example:
-                    - "show me recent metrics" → "analyze"
-                    - "review john's performance" → "review john"
-                    - "setup my workspace" → "config"
-                    - "generate charts" → "report"
-                    
-                    If you can't map the request to a command, respond with "help"."""
-                )
-                
-                interpreted_command = response.content[0].text.strip()
+            if command.lower() in ['exit', 'quit', 'q']:
+                break
             
-            # Execute command without spinner for interactive commands
-            try:
-                execute_command(interpreted_command)
-            except Exception as e:
-                console.print(f"[red]Error executing command: {str(e)}[/]")
-        else:
-            # Basic command matching without AI
-            if 'help' in command.lower():
+            if command.lower() in ['help', '?']:
                 show_help()
-            elif 'config' in command.lower():
-                execute_command('config')
-            elif 'analyze' in command.lower():
-                with console.status("[bold green]Processing..."): 
-                    execute_command('analyze')
-            elif 'report' in command.lower():
-                with console.status("[bold green]Processing..."): 
-                    execute_command('report')
-            elif 'review' in command.lower():
-                console.print("[yellow]Please use 'review <github_username>' for performance reviews[/]")
+                continue
+                
+            if client:
+                # Use Claude to interpret the natural language command
+                try:
+                    response = client.messages.create(
+                        model="claude-3-sonnet-20240229",
+                        max_tokens=1024,
+                        messages=[{
+                            "role": "user",
+                            "content": f"Convert this natural language request into a Wellcode CLI command: {command}"
+                        }],
+                        system=get_claude_system_prompt()
+                    )
+                    
+                    interpreted_command = response.content[0].text.strip()
+                    logging.info(f"Original command: '{command}' → Interpreted as: '{interpreted_command}'")
+                    console.print(f"[dim]Interpreting as: {interpreted_command}[/dim]")
+                    
+                    if interpreted_command:
+                        execute_command(interpreted_command)
+                    else:
+                        console.print("[yellow]I couldn't understand that request. Try rephrasing or type 'help' for suggestions.[/]")
+                        
+                except Exception as e:
+                    console.print(f"[red]Error processing command: {str(e)}[/]")
             else:
-                console.print("[yellow]Available commands: analyze, config, report, review[/]")
+                # Basic command parsing without AI
+                execute_command(command)
+                
+        except Exception as e:
+            console.print(f"[red]Error: {str(e)}[/]")
+
 
 @cli.command()
 def config():
@@ -210,10 +203,17 @@ def config():
             "[cyan]Enter your GitHub organization[/]",
             default=config_data.get('GITHUB_ORG', '')
         )
-        config_data.update({
-            'GITHUB_TOKEN': github_token,
-            'GITHUB_ORG': github_org
-        })
+        if github_token and github_org:
+            config_data.update({
+                'GITHUB_TOKEN': github_token,
+                'GITHUB_ORG': github_org
+            })
+        else:
+            config_data.pop('GITHUB_TOKEN', None)
+            config_data.pop('GITHUB_ORG', None)
+    else:
+        config_data.pop('GITHUB_TOKEN', None)
+        config_data.pop('GITHUB_ORG', None)
     
     # Linear Configuration
     if Confirm.ask("\n[bold cyan]Do you want to configure Linear integration?[/]"):
@@ -222,7 +222,12 @@ def config():
             password=True,
             default=config_data.get('LINEAR_API_KEY', '')
         )
-        config_data['LINEAR_API_KEY'] = linear_key
+        if linear_key:
+            config_data['LINEAR_API_KEY'] = linear_key
+        else:
+            config_data.pop('LINEAR_API_KEY', None)
+    else:
+        config_data.pop('LINEAR_API_KEY', None)
     
     # Split.io Configuration 
     if Confirm.ask("\n[bold cyan]Do you want to configure Split.io integration?[/]"):
@@ -231,7 +236,12 @@ def config():
             password=True,
             default=config_data.get('SPLIT_API_KEY', '')
         )
-        config_data['SPLIT_API_KEY'] = split_key
+        if split_key:
+            config_data['SPLIT_API_KEY'] = split_key
+        else:
+            config_data.pop('SPLIT_API_KEY', None)
+    else:
+        config_data.pop('SPLIT_API_KEY', None)
     
     # Anthropic Configuration
     if Confirm.ask("\n[bold cyan]Do you want to configure AI analysis (using Anthropic)?[/]"):
@@ -240,7 +250,12 @@ def config():
             password=True,
             default=config_data.get('ANTHROPIC_API_KEY', '')
         )
-        config_data['ANTHROPIC_API_KEY'] = anthropic_key
+        if anthropic_key:
+            config_data['ANTHROPIC_API_KEY'] = anthropic_key
+        else:
+            config_data.pop('ANTHROPIC_API_KEY', None)
+    else:
+        config_data.pop('ANTHROPIC_API_KEY', None)
     
     # Save configuration
     save_config(config_data)
@@ -255,18 +270,15 @@ def analyze(start_date, end_date, user, team):
     """Analyze engineering metrics"""
     # Handle end date
     if end_date is None:
-        end_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    else:
-        # Strip time information to work with whole days
-        end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+        end_date = datetime.now()
     
     # Handle start date
     if start_date is None:
-        # Only calculate default if no start date provided
-        start_date = end_date - timedelta(days=5)
+        start_date = end_date - timedelta(days=1)
     
-    # Ensure we're working with start of day
+    # Ensure we're working with whole days
     start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
     
     console.print(f"\n📅 Analyzing metrics from {start_date.date()} to {end_date.date()}")
     
@@ -788,35 +800,6 @@ def report(output, format):
     except Exception as e:
         console.print(f"[red]Error generating report: {str(e)}[/]")
         raise
-
-@cli.command()
-@click.argument('github_username')
-@click.option('--linear-username', '-l', help='Linear username (if different from GitHub username)')
-@click.option('--days', '-d', default=30, help='Number of days to analyze')
-def review(github_username, linear_username, days):
-    """Generate a performance review for a specific user
-    
-    GITHUB_USERNAME: GitHub username of the person to review
-    """
-    config_data = load_config()
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=days)
-    
-    console.print(Panel.fit(
-        "[bold blue]Wellcode.ai[/] - Performance Review Generator",
-        subtitle=f"v{__version__}",
-        border_style="blue"
-    ))
-    
-    with console.status("[bold green]Gathering metrics...") as status:
-        status.update("Fetching GitHub metrics...")
-        github_metrics = get_github_metrics(config_data['GITHUB_ORG'], start_date, end_date, user_filter=github_username)
-        
-        status.update("Fetching Linear metrics...")
-        linear_metrics = get_linear_metrics(start_date, end_date, user_filter=linear_username or github_username)
-        
-        status.update("Generating review...")
-        generate_performance_review(github_metrics, linear_metrics, github_username, linear_username)
 
 def main():
     cli()
