@@ -5,3 +5,4 @@ dist
 venv
 config.py
 wellcode_cli.egg-info
+wellcode_cli/commands/__pycache__
