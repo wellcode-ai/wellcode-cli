@@ -120,7 +120,7 @@ wellcode-cli config
 
 2. Analyze metrics:
 ```bash
-wellcode-cli analyze
+wellcode-cli review
 ```
 
 3. Generate visual report:

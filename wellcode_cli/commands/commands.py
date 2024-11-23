@@ -4,10 +4,9 @@ from typing import Optional
 from dataclasses import dataclass
 
 class CommandType(Enum):
-    ANALYZE = "analyze"
+    REVIEW = "review"
     CONFIG = "config"
     REPORT = "report"
-    REVIEW = "review"
     HELP = "help"
     EXIT = "exit"
     CHAT = "chat"
@@ -26,13 +25,13 @@ class Command:
     time_range: Optional[TimeRange] = None
 
 COMMANDS = {
-    CommandType.ANALYZE: Command(
-        type=CommandType.ANALYZE,
-        description="Analyze engineering metrics",
+    CommandType.REVIEW: Command(
+        type=CommandType.REVIEW,
+        description="Review engineering metrics",
         examples=[
-            "analyze my team's performance",
+            "review my team's performance",
             "show metrics for last week",
-            "analyze pull requests",
+            "review pull requests",
         ]
     ),
     CommandType.CONFIG: Command(
@@ -79,7 +78,7 @@ def get_claude_system_prompt():
 Today's date is {today}.
 
 Available Commands and Options:
-1. analyze
+1. review
    Options:
    --start-date, -s DATE    Start date for analysis (YYYY-MM-DD)
    --end-date, -e DATE      End date for analysis (YYYY-MM-DD)
@@ -108,9 +107,9 @@ Available Commands and Options:
    Exit the application
 
 Command Examples:
-- "analyze team performance" → "analyze --team frontend"
-- "show metrics for last week" → "analyze --start-date 2024-03-20 --end-date 2024-03-27"
-- "how was pimouss yesterday" → "analyze --user pimouss --start-date {yesterday} --end-date {today}"
+- "review team performance" → "review --team frontend"
+- "show metrics for last week" → "review --start-date 2024-03-20 --end-date 2024-03-27"
+- "how was pimouss yesterday" → "review --user pimouss --start-date {yesterday} --end-date {today}"
 - "generate report" → "report --format html"
 - "save report to desktop" → "report --output ~/Desktop --format html"
 - "setup integrations" → "config"
@@ -119,22 +118,35 @@ Command Examples:
 - "quit" → "exit"
 
 Rules for Command Interpretation:
-1. Time-based queries:
+1. Use REVIEW command ONLY for direct metric queries:
+   - "show metrics for user X"
+   - "get last week's stats for team Y"
+   - Simple performance data requests
+
+2. Use CHAT command for:
+   - Analysis questions ("why is performance dropping?")
+   - Comparative questions ("how is X doing compared to last month?")
+   - Improvement suggestions ("how can team Y improve?")
+   - Complex queries requiring context
+   - Any questions starting with "why", "how", "what about", "any idea"
+   - Performance discussions and insights
+
+3. Time-based queries:
    - "yesterday" → calculate proper date
    - "last week" → calculate 7 days ago
    - "this month" → first day of current month
    - "today" → current date
    - Always convert to YYYY-MM-DD format
 
-2. User queries:
-   - "how was <user>" → analyze --user <user>
-   - "<user>'s performance" → analyze --user <user>
+4. User queries:
+   - "how was <user>" → review --user <user>
+   - "<user>'s performance" → review --user <user>
 
-3. Team queries:
-   - "team <name>" → analyze --team <name>
-   - "<team> performance" → analyze --team <name>
+5. Team queries:
+   - "team <name>" → review --team <name>
+   - "<team> performance" → review --team <name>
 
-4. Report queries:
+6. Report queries:
    - "generate report" → report with default options
    - "save report to <path>" → report --output <path>
    - Specify format with "pdf" or "html" keywords
@@ -146,13 +158,19 @@ Important:
 - Default to "help" if the intent is unclear
 
 Example Inputs and Outputs:
-- "how was pimouss yesterday" → "analyze --user pimouss --start-date {yesterday} --end-date {today}"
-- "show team frontend metrics for last week" → "analyze --team frontend --start-date {(datetime.now(timezone.utc) - timedelta(days=7)).strftime('%Y-%m-%d')} --end-date {today}"
+- "how was pimouss yesterday" → "review --user pimouss --start-date {yesterday} --end-date {today}"
+- "show team frontend metrics for last week" → "review --team frontend --start-date {(datetime.now(timezone.utc) - timedelta(days=7)).strftime('%Y-%m-%d')} --end-date {today}"
 - "generate html report" → "report --format html"
 - "setup my workspace" → "config"
 - "let's chat about metrics" → "chat"
+- "show ymatagne's metrics" → "review --user ymatagne"
+- "how is ymatagne performing?" → "chat"
+- "any suggestions for ymatagne?" → "chat"
+- "what's causing ymatagne's performance drop?" → "chat"
+- "show team frontend stats" → "review --team frontend"
+- "how can frontend team improve?" → "chat"
 
-Remember: Respond with ONLY the command and its options, nothing else."""
+Remember: Use chat mode for analytical questions and review for direct metric queries."""
 
 def parse_time_range(command_str: str) -> Optional[TimeRange]:
     """Parse temporal expressions from command string"""
@@ -179,18 +197,16 @@ def parse_time_range(command_str: str) -> Optional[TimeRange]:
 
 def parse_command(command_str: str) -> tuple[CommandType, list, Optional[TimeRange]]:
     """Parse a command string into command type, arguments, and time range"""
+    # Single command mapping definition
     cmd_mapping = {
-        'analyze': CommandType.ANALYZE,
-        'check': CommandType.ANALYZE,
-        'show': CommandType.ANALYZE,
+        'review': CommandType.REVIEW,
+        'check': CommandType.REVIEW,
+        'show': CommandType.REVIEW,
         'config': CommandType.CONFIG,
         'setup': CommandType.CONFIG,
         'configure': CommandType.CONFIG,
         'report': CommandType.REPORT,
         'chart': CommandType.REPORT,
-        'review': CommandType.REVIEW,
-        'chat': CommandType.CHAT,
-        'interactive': CommandType.CHAT,
         'help': CommandType.HELP,
         '?': CommandType.HELP,
         'exit': CommandType.EXIT,
@@ -199,59 +215,29 @@ def parse_command(command_str: str) -> tuple[CommandType, list, Optional[TimeRan
     }
     
     parts = command_str.strip().split()
-    if not parts:
-        return CommandType.HELP, [], None
-    
-    # If the command is already formatted (contains --), parse it directly
-    if any(arg.startswith('--') for arg in parts):
-        cmd = parts[0].lower()
-        if cmd in cmd_mapping:
-            return cmd_mapping[cmd], parts[1:], parse_time_range(command_str)
-    
-    # Rest of the existing parsing logic...
-    cmd = parts[0].lower()
-    args = parts[1:] if len(parts) > 1 else []
     time_range = parse_time_range(command_str)
     
-    # Map common variations to commands
-    cmd_mapping = {
-        'analyze': CommandType.ANALYZE,
-        'check': CommandType.ANALYZE,
-        'show': CommandType.ANALYZE,
-        'config': CommandType.CONFIG,
-        'setup': CommandType.CONFIG,
-        'configure': CommandType.CONFIG,
-        'report': CommandType.REPORT,
-        'chart': CommandType.REPORT,
-        'review': CommandType.REVIEW,
-        'chat': CommandType.CHAT,
-        'interactive': CommandType.CHAT,
-        'help': CommandType.HELP,
-        '?': CommandType.HELP,
-        'exit': CommandType.EXIT,
-        'quit': CommandType.EXIT,
-        'q': CommandType.EXIT
-    }
+    if not parts:
+        return CommandType.CHAT, [command_str], time_range
+
+    cmd = parts[0].lower()
+    args = parts[1:] if len(parts) > 1 else []
+
+    # Check for exact command match
+    if cmd in cmd_mapping:
+        return cmd_mapping[cmd], args, time_range
+        
+    # Check if any command keyword is in the string
+    for key, value in cmd_mapping.items():
+        if key in command_str.lower():
+            if value == CommandType.REVIEW:
+                parts = command_str.lower().split(key)
+                if len(parts) > 1 and parts[1].strip():
+                    return value, [parts[1].strip().split()[0]], time_range
+            return value, [], time_range
     
-    try:
-        # Try direct mapping first
-        if cmd in cmd_mapping:
-            return cmd_mapping[cmd], args, time_range
-            
-        # Try to find command in the full string for natural language
-        for key, value in cmd_mapping.items():
-            if key in command_str.lower():
-                # For review commands, try to extract username
-                if value == CommandType.REVIEW:
-                    # Look for username after "review" or at the end
-                    parts = command_str.lower().split(key)
-                    if len(parts) > 1 and parts[1].strip():
-                        return value, [parts[1].strip().split()[0]], time_range
-                return value, [], time_range
-                
-        return CommandType.HELP, [], time_range
-    except (ValueError, IndexError):
-        return CommandType.HELP, [], time_range
+    # Default to chat with original input
+    return CommandType.CHAT, [command_str], time_range
 
 def show_help():
     """Display help information about available commands"""
