@@ -2,11 +2,12 @@ import rich_click as click
 from rich.console import Console
 from pathlib import Path
 import plotly.graph_objects as go
-import statistics
 from datetime import datetime
 import webbrowser
 from ..utils import get_latest_analysis
 import plotly.io as pio
+from collections import defaultdict
+import statistics
 console = Console()
 
 @click.command()
@@ -21,15 +22,10 @@ def report(output, format):
             return
 
         metrics = data.get('metrics', {})
-        github_metrics = metrics.get('github', {})
-        linear_metrics = metrics.get('linear', {})
-        split_metrics = metrics.get('split', {})
-        
-        # Debug print
-        console.print("[yellow]Available metrics:[/]")
-        console.print(f"GitHub metrics: {github_metrics.keys()}")
-        console.print(f"Linear metrics: {linear_metrics.keys()}")
-        console.print(f"Split metrics: {split_metrics.keys()}")
+        github_data = metrics.get('github')
+        if not github_data:
+            console.print("[red]No GitHub metrics found in the analysis data.[/]")
+            return
 
         # Create output directory
         output_dir = Path(output) if output else Path.cwd() / 'reports'
@@ -37,56 +33,43 @@ def report(output, format):
         console.print(f"Output directory: {output_dir}")
 
         charts = []
+        summary_stats = {}
 
         # GitHub Metrics Charts
-        if github_metrics:
-            # PR Summary Bar Chart
-            if all(key in github_metrics for key in ['prs_created', 'prs_merged', 'prs_merged_to_main']):
-                pr_summary = go.Figure(data=[
-                    go.Bar(
-                        x=['PRs Created', 'PRs Merged', 'PRs Merged to Main'],
-                        y=[
-                            github_metrics['prs_created'],
-                            github_metrics['prs_merged'],
-                            github_metrics['prs_merged_to_main']
-                        ],
-                        marker_color=['#6366F1', '#EC4899', '#10B981']
-                    )
-                ])
-                pr_summary.update_layout(
-                    title='Pull Request Summary',
-                    yaxis_title='Count',
-                    plot_bgcolor='#F3F4F6',
-                    paper_bgcolor='#F3F4F6'
+        if github_data:
+            # Organization Overview
+            org_stats = {
+                'Total Repositories': len(github_data.get('repositories', {})),
+                'Active Contributors': len(set().union(*[set(repo.get('contributors', [])) 
+                                                       for repo in github_data.get('repositories', {}).values()])),
+                'Total PRs': sum(repo.get('prs_created', 0) for repo in github_data.get('repositories', {}).values()),
+                'Merged PRs': sum(repo.get('prs_merged', 0) for repo in github_data.get('repositories', {}).values())
+            }
+            
+            overview = go.Figure(data=[
+                go.Bar(
+                    x=list(org_stats.keys()),
+                    y=list(org_stats.values()),
+                    marker_color=['#6366F1', '#EC4899', '#10B981', '#F59E0B']
                 )
-                charts.append(pr_summary)
+            ])
+            overview.update_layout(
+                title='Organization Overview',
+                yaxis_title='Count',
+                plot_bgcolor='#F3F4F6',
+                paper_bgcolor='#F3F4F6'
+            )
+            charts.append(overview)
 
-            # Comments Distribution
-            if 'comments_per_pr' in github_metrics:
-                comments_values = list(github_metrics['comments_per_pr'].values())
-                if comments_values:
-                    comments_dist = go.Figure(data=[
-                        go.Histogram(
-                            x=comments_values,
-                            nbinsx=20,
-                            name='Comments Distribution',
-                            marker_color='#6366F1'
-                        )
-                    ])
-                    comments_dist.update_layout(
-                        title='PR Comments Distribution',
-                        xaxis_title='Number of Comments',
-                        yaxis_title='Frequency',
-                        plot_bgcolor='#F3F4F6',
-                        paper_bgcolor='#F3F4F6'
-                    )
-                    charts.append(comments_dist)
-
-            # Time to Merge Distribution
-            if 'time_to_merge' in github_metrics and github_metrics['time_to_merge']:
+            # Time Metrics
+            time_metrics = []
+            for repo in github_data.get('repositories', {}).values():
+                time_metrics.extend(repo.get('time_metrics', {}).get('time_to_merge', []))
+            
+            if time_metrics:
                 merge_dist = go.Figure(data=[
                     go.Histogram(
-                        x=github_metrics['time_to_merge'],
+                        x=time_metrics,
                         nbinsx=20,
                         name='Time to Merge Distribution',
                         marker_color='#EC4899'
@@ -101,206 +84,395 @@ def report(output, format):
                 )
                 charts.append(merge_dist)
 
-            # User Contributions
-            if 'user_contributions' in github_metrics:
-                user_data = github_metrics['user_contributions']
-                if user_data:
-                    users = list(user_data.keys())
-                    created = [user_data[user]['created'] for user in users]
-                    merged = [user_data[user]['merged'] for user in users]
+            # User Activity
+            user_data = {}
+            for user in github_data.get('users', {}).values():
+                user_data[user.get('username', '')] = {
+                    'PRs Created': user.get('prs_created', 0),
+                    'PRs Merged': user.get('prs_merged', 0),
+                    'Reviews Given': user.get('review_metrics', {}).get('reviews_performed', 0),
+                    'Comments Given': user.get('review_metrics', {}).get('review_comments_given', 0)
+                }
 
-                    user_fig = go.Figure(data=[
-                        go.Bar(name='Created', x=users, y=created, marker_color='#6366F1'),
-                        go.Bar(name='Merged', x=users, y=merged, marker_color='#EC4899')
-                    ])
-                    user_fig.update_layout(
-                        title='User Contributions',
-                        barmode='group',
-                        xaxis_title='Users',
-                        yaxis_title='Count',
-                        plot_bgcolor='#F3F4F6',
-                        paper_bgcolor='#F3F4F6'
-                    )
-                    charts.append(user_fig)
+            if user_data:
+                user_activity = go.Figure()
+                for metric in ['PRs Created', 'PRs Merged', 'Reviews Given', 'Comments Given']:
+                    user_activity.add_trace(go.Bar(
+                        name=metric,
+                        x=list(user_data.keys()),
+                        y=[user_data[user][metric] for user in user_data],
+                    ))
 
-            # DORA Metrics Charts
-            if github_metrics:
-                # Deployment Frequency
-                if 'deployment_frequency' in github_metrics:
-                    deploy_freq = go.Figure(data=[
-                        go.Indicator(
-                            mode="gauge+number",
-                            value=github_metrics['deployment_frequency'],
-                            title={'text': "Deployments per Day"},
-                            gauge={
-                                'axis': {'range': [None, 10]},
-                                'steps': [
-                                    {'range': [0, 1], 'color': "lightgray"},
-                                    {'range': [1, 3], 'color': "gray"}
-                                ],
-                                'threshold': {
-                                    'line': {'color': "red", 'width': 4},
-                                    'thickness': 0.75,
-                                    'value': 3
-                                }
-                            }
-                        )
-                    ])
-                    deploy_freq.update_layout(
-                        title='Deployment Frequency',
-                        height=400,
-                        plot_bgcolor='#F3F4F6',
-                        paper_bgcolor='#F3F4F6'
-                    )
-                    charts.append(deploy_freq)
-
-                # Lead Time for Changes
-                if 'lead_times' in github_metrics and github_metrics['lead_times']:
-                    lead_times = github_metrics['lead_times']
-                    lead_time_dist = go.Figure(data=[
-                        go.Histogram(
-                            x=lead_times,
-                            nbinsx=20,
-                            name='Lead Time Distribution',
-                            marker_color='#10B981'
-                        )
-                    ])
-                    lead_time_dist.update_layout(
-                        title='Lead Time for Changes',
-                        xaxis_title='Hours',
-                        yaxis_title='Frequency',
-                        plot_bgcolor='#F3F4F6',
-                        paper_bgcolor='#F3F4F6'
-                    )
-                    charts.append(lead_time_dist)
-
-                # DORA Metrics Summary
-                dora_summary = go.Figure(data=[
-                    go.Bar(
-                        x=['Deployment Frequency', 'Median Lead Time', 'Avg Time to Merge'],
-                        y=[
-                            github_metrics.get('deployment_frequency', 0),
-                            github_metrics.get('median_lead_time', 0),
-                            github_metrics.get('avg_time_to_merge', 0)
-                        ],
-                        marker_color=['#6366F1', '#EC4899', '#10B981']
-                    )
-                ])
-                dora_summary.update_layout(
-                    title='DORA Metrics Summary',
-                    yaxis_title='Hours/Count',
-                    plot_bgcolor='#F3F4F6',
-                    paper_bgcolor='#F3F4F6'
-                )
-                charts.append(dora_summary)
-
-                # Code Quality Metrics
-                if 'code_quality' in github_metrics:
-                    code_quality = github_metrics['code_quality']
-                    quality_metrics = go.Figure(data=[
-                        go.Bar(
-                            x=['Avg Changes/PR', 'Avg Files/PR', 'Hotfixes', 'Reverts'],
-                            y=[
-                                statistics.mean(code_quality['changes_per_pr']) if code_quality['changes_per_pr'] else 0,
-                                statistics.mean(code_quality['files_changed_per_pr']) if code_quality['files_changed_per_pr'] else 0,
-                                code_quality.get('hotfix_count', 0),
-                                code_quality.get('revert_count', 0)
-                            ],
-                            marker_color=['#6366F1', '#EC4899', '#F59E0B', '#EF4444']
-                        )
-                    ])
-                    quality_metrics.update_layout(
-                        title='Code Quality Metrics',
-                        yaxis_title='Count',
-                        plot_bgcolor='#F3F4F6',
-                        paper_bgcolor='#F3F4F6'
-                    )
-                    charts.append(quality_metrics)
-
-                # Review Process Metrics
-                if 'review_metrics' in github_metrics:
-                    review_metrics = github_metrics['review_metrics']
-                    if review_metrics.get('time_to_first_review'):
-                        review_time_dist = go.Figure(data=[
-                            go.Histogram(
-                                x=review_metrics['time_to_first_review'],
-                                nbinsx=20,
-                                name='Time to First Review',
-                                marker_color='#8B5CF6'
-                            )
-                        ])
-                        review_time_dist.update_layout(
-                            title='Time to First Review Distribution',
-                            xaxis_title='Hours',
-                            yaxis_title='Frequency',
-                            plot_bgcolor='#F3F4F6',
-                            paper_bgcolor='#F3F4F6'
-                        )
-                        charts.append(review_time_dist)
-
-                # Bottleneck Metrics
-                if 'bottleneck_metrics' in github_metrics:
-                    bottleneck = github_metrics['bottleneck_metrics']
-                    bottleneck_summary = go.Figure(data=[
-                        go.Bar(
-                            x=['Stale PRs', 'Long-Running PRs'],
-                            y=[
-                                bottleneck.get('stale_prs', 0),
-                                bottleneck.get('long_running_prs', 0)
-                            ],
-                            marker_color=['#F59E0B', '#EF4444']
-                        )
-                    ])
-                    bottleneck_summary.update_layout(
-                        title='Process Bottlenecks',
-                        yaxis_title='Count',
-                        plot_bgcolor='#F3F4F6',
-                        paper_bgcolor='#F3F4F6'
-                    )
-                    charts.append(bottleneck_summary)
-
-        # Linear Metrics Charts
-        if linear_metrics:
-            # Issue Summary
-            if all(key in linear_metrics for key in ['issues_created', 'issues_completed']):
-                issue_summary = go.Figure(data=[
-                    go.Bar(
-                        x=['Issues Created', 'Issues Completed'],
-                        y=[
-                            linear_metrics['issues_created'],
-                            linear_metrics['issues_completed']
-                        ],
-                        marker_color=['#6366F1', '#10B981']
-                    )
-                ])
-                issue_summary.update_layout(
-                    title='Issue Summary',
+                user_activity.update_layout(
+                    title='User Activity',
+                    barmode='group',
+                    xaxis_title='Users',
                     yaxis_title='Count',
                     plot_bgcolor='#F3F4F6',
                     paper_bgcolor='#F3F4F6'
                 )
-                charts.append(issue_summary)
+                charts.append(user_activity)
 
-        # Split Metrics Charts
-        if split_metrics:
-            # Feature Flags Overview
-            splits_overview = go.Figure(data=[
+            # Repository Metrics
+            repo_metrics = {}
+            for repo_name, repo in github_data.get('repositories', {}).items():
+                repo_metrics[repo_name] = {
+                    'PRs Created': repo.get('prs_created', 0),
+                    'PRs Merged': repo.get('prs_merged', 0),
+                    'Contributors': len(repo.get('contributors', [])),
+                    'Reviews': repo.get('review_metrics', {}).get('reviews_performed', 0)
+                }
+
+            if repo_metrics:
+                repo_activity = go.Figure()
+                for metric in ['PRs Created', 'PRs Merged', 'Contributors', 'Reviews']:
+                    repo_activity.add_trace(go.Bar(
+                        name=metric,
+                        x=list(repo_metrics.keys()),
+                        y=[repo_metrics[repo][metric] for repo in repo_metrics],
+                    ))
+
+                repo_activity.update_layout(
+                    title='Repository Activity',
+                    barmode='group',
+                    xaxis_title='Repositories',
+                    yaxis_title='Count',
+                    plot_bgcolor='#F3F4F6',
+                    paper_bgcolor='#F3F4F6'
+                )
+                charts.append(repo_activity)
+
+            # Code Quality Metrics
+            code_metrics = {
+                'Hotfixes': sum(repo.get('code_metrics', {}).get('hotfixes', 0) for repo in github_data.get('repositories', {}).values()),
+                'Reverts': sum(repo.get('code_metrics', {}).get('reverts', 0) for repo in github_data.get('repositories', {}).values()),
+                'Blocking Reviews': sum(user.get('review_metrics', {}).get('blocking_reviews_given', 0) for user in github_data.get('users', {}).values()),
+                'Stale PRs': sum(repo.get('bottleneck_metrics', {}).get('stale_prs', 0) for repo in github_data.get('repositories', {}).values())
+            }
+
+            quality = go.Figure(data=[
                 go.Bar(
-                    x=['Total', 'Active'],
-                    y=[
-                        split_metrics.get('total_splits', 0),
-                        split_metrics.get('active_splits', 0)
-                    ],
-                    marker_color='#F59E0B'
+                    x=list(code_metrics.keys()),
+                    y=list(code_metrics.values()),
+                    marker_color=['#EF4444', '#F59E0B', '#6366F1', '#EC4899']
                 )
             ])
-            splits_overview.update_layout(
-                title='Feature Flags Overview',
+            quality.update_layout(
+                title='Code Quality Metrics',
                 yaxis_title='Count',
                 plot_bgcolor='#F3F4F6',
                 paper_bgcolor='#F3F4F6'
             )
-            charts.append(splits_overview)
+            charts.append(quality)
+
+            # Add new charts for engineering managers
+            
+            # 1. PR Review Time Distribution
+            review_times = []
+            for repo in github_data.get('repositories', {}).values():
+                review_times.extend(repo.get('review_metrics', {}).get('review_wait_times', []))
+            
+            if review_times:
+                review_dist = go.Figure(data=[
+                    go.Histogram(
+                        x=review_times,
+                        nbinsx=20,
+                        name='Review Time Distribution',
+                        marker_color='#8B5CF6'
+                    )
+                ])
+                review_dist.update_layout(
+                    title='PR Review Time Distribution',
+                    xaxis_title='Hours',
+                    yaxis_title='Frequency',
+                    plot_bgcolor='#F3F4F6',
+                    paper_bgcolor='#F3F4F6'
+                )
+                charts.append(review_dist)
+
+            # 2. Team Collaboration Metrics
+            team_metrics = {}
+            for repo in github_data.get('repositories', {}).values():
+                collab_metrics = repo.get('collaboration_metrics', {})
+                team_metrics['Cross-team Reviews'] = team_metrics.get('Cross-team Reviews', 0) + collab_metrics.get('cross_team_reviews', 0)
+                team_metrics['Self-merges'] = team_metrics.get('Self-merges', 0) + collab_metrics.get('self_merges', 0)
+                team_metrics['Team Reviews'] = team_metrics.get('Team Reviews', 0) + collab_metrics.get('team_reviews', 0)
+                team_metrics['External Reviews'] = team_metrics.get('External Reviews', 0) + collab_metrics.get('external_reviews', 0)
+
+            if team_metrics:
+                collaboration = go.Figure(data=[
+                    go.Bar(
+                        x=list(team_metrics.keys()),
+                        y=list(team_metrics.values()),
+                        marker_color=['#3B82F6', '#EF4444', '#10B981', '#F59E0B']
+                    )
+                ])
+                collaboration.update_layout(
+                    title='Team Collaboration Overview',
+                    yaxis_title='Count',
+                    plot_bgcolor='#F3F4F6',
+                    paper_bgcolor='#F3F4F6'
+                )
+                charts.append(collaboration)
+
+            # 3. Bottleneck Analysis
+            bottleneck_data = {
+                'Metrics': ['Stale PRs', 'Long-running PRs', 'Blocked PRs', 'High Review Wait Time'],
+                'Values': [
+                    sum(repo.get('bottleneck_metrics', {}).get('stale_prs', 0) 
+                        for repo in github_data.get('repositories', {}).values()),
+                    sum(repo.get('bottleneck_metrics', {}).get('long_running_prs', 0) 
+                        for repo in github_data.get('repositories', {}).values()),
+                    sum(repo.get('bottleneck_metrics', {}).get('blocked_prs', 0) 
+                        for repo in github_data.get('repositories', {}).values()),
+                    len([t for repo in github_data.get('repositories', {}).values() 
+                         for t in repo.get('bottleneck_metrics', {}).get('review_wait_times', []) 
+                         if t > 48])  # PRs waiting > 48 hours for review
+                ]
+            }
+
+            bottlenecks = go.Figure(data=[
+                go.Bar(
+                    x=bottleneck_data['Metrics'],
+                    y=bottleneck_data['Values'],
+                    marker_color='#EF4444'
+                )
+            ])
+            bottlenecks.update_layout(
+                title='Development Bottlenecks',
+                yaxis_title='Count',
+                plot_bgcolor='#F3F4F6',
+                paper_bgcolor='#F3F4F6'
+            )
+            charts.append(bottlenecks)
+
+            # 4. Team Velocity Trends
+            velocity_data = {}
+            for repo in github_data.get('repositories', {}).values():
+                for pr in repo.get('time_metrics', {}).get('lead_times', []):
+                    week = datetime.fromtimestamp(pr * 3600).strftime('%Y-%W')  # Convert hours to timestamp
+                    velocity_data[week] = velocity_data.get(week, 0) + 1
+
+            if velocity_data:
+                weeks = sorted(velocity_data.keys())
+                velocity = go.Figure(data=[
+                    go.Scatter(
+                        x=weeks,
+                        y=[velocity_data[week] for week in weeks],
+                        mode='lines+markers',
+                        line=dict(color='#10B981')
+                    )
+                ])
+                velocity.update_layout(
+                    title='Team Velocity (PRs Merged per Week)',
+                    xaxis_title='Week',
+                    yaxis_title='PRs Merged',
+                    plot_bgcolor='#F3F4F6',
+                    paper_bgcolor='#F3F4F6'
+                )
+                charts.append(velocity)
+
+            # 5. Code Review Participation
+            reviewer_stats = defaultdict(int)
+            for repo in github_data.get('repositories', {}).values():
+                for reviewer_data in repo.get('review_metrics', {}).get('reviewers_per_pr', {}).values():
+                    for reviewer in reviewer_data:
+                        reviewer_stats[reviewer] += 1
+
+            if reviewer_stats:
+                reviewers = go.Figure(data=[
+                    go.Bar(
+                        x=list(reviewer_stats.keys()),
+                        y=list(reviewer_stats.values()),
+                        marker_color='#6366F1'
+                    )
+                ])
+                reviewers.update_layout(
+                    title='Code Review Participation by Team Member',
+                    xaxis_title='Team Member',
+                    yaxis_title='Reviews Performed',
+                    plot_bgcolor='#F3F4F6',
+                    paper_bgcolor='#F3F4F6'
+                )
+                charts.append(reviewers)
+
+            # 6. PRs per Developer
+            developer_prs = {}
+            for username, user in github_data.get('users', {}).items():
+                if username.endswith('[bot]'):  # Skip bot users
+                    continue
+                
+                # Safely calculate average review time
+                time_to_merge = user.get('time_metrics', {}).get('time_to_merge', [])
+                avg_review_time = round(statistics.mean(time_to_merge)) if time_to_merge else 0
+                
+                developer_prs[username] = {
+                    'Created': user.get('prs_created', 0),
+                    'Merged': user.get('prs_merged', 0),
+                    'Open': user.get('prs_created', 0) - user.get('prs_merged', 0),
+                    'Avg Size': round(user.get('code_metrics', {}).get('avg_pr_size', 0), 2),
+                    'Avg Review Time': avg_review_time
+                }
+
+            if developer_prs:
+                # PR Creation and Merge Rate
+                pr_activity = go.Figure()
+                
+                # Add traces for Created, Merged, and Open PRs
+                pr_activity.add_trace(go.Bar(
+                    name='Created PRs',
+                    x=list(developer_prs.keys()),
+                    y=[data['Created'] for data in developer_prs.values()],
+                    marker_color='#3B82F6'
+                ))
+                
+                pr_activity.add_trace(go.Bar(
+                    name='Merged PRs',
+                    x=list(developer_prs.keys()),
+                    y=[data['Merged'] for data in developer_prs.values()],
+                    marker_color='#10B981'
+                ))
+                
+                pr_activity.add_trace(go.Bar(
+                    name='Open PRs',
+                    x=list(developer_prs.keys()),
+                    y=[data['Open'] for data in developer_prs.values()],
+                    marker_color='#F59E0B'
+                ))
+
+                pr_activity.update_layout(
+                    title='PR Activity by Developer',
+                    barmode='group',
+                    xaxis_title='Developer',
+                    yaxis_title='Number of PRs',
+                    plot_bgcolor='#F3F4F6',
+                    paper_bgcolor='#F3F4F6',
+                    showlegend=True
+                )
+                charts.append(pr_activity)
+
+                # PR Size and Review Time (only if we have data)
+                if any(data['Avg Size'] > 0 or data['Avg Review Time'] > 0 for data in developer_prs.values()):
+                    pr_metrics = go.Figure()
+                    
+                    pr_metrics.add_trace(go.Bar(
+                        name='Avg PR Size (changes)',
+                        x=list(developer_prs.keys()),
+                        y=[data['Avg Size'] for data in developer_prs.values()],
+                        marker_color='#8B5CF6',
+                        yaxis='y'
+                    ))
+                    
+                    pr_metrics.add_trace(go.Scatter(
+                        name='Avg Review Time (hours)',
+                        x=list(developer_prs.keys()),
+                        y=[data['Avg Review Time'] for data in developer_prs.values()],
+                        marker_color='#EC4899',
+                        yaxis='y2'
+                    ))
+
+                    pr_metrics.update_layout(
+                        title='PR Metrics by Developer',
+                        xaxis_title='Developer',
+                        yaxis=dict(
+                            title='Average PR Size',
+                            titlefont=dict(color='#8B5CF6'),
+                            tickfont=dict(color='#8B5CF6')
+                        ),
+                        yaxis2=dict(
+                            title='Average Review Time (hours)',
+                            titlefont=dict(color='#EC4899'),
+                            tickfont=dict(color='#EC4899'),
+                            overlaying='y',
+                            side='right'
+                        ),
+                        plot_bgcolor='#F3F4F6',
+                        paper_bgcolor='#F3F4F6',
+                        showlegend=True
+                    )
+                    charts.append(pr_metrics)
+
+                # Update summary stats with developer PR metrics
+                if developer_prs:
+                    most_active = max(developer_prs.items(), key=lambda x: x[1]['Created'])
+                    highest_merge_rate = max(
+                        ((name, data['Merged'] / max(data['Created'], 1)) 
+                         for name, data in developer_prs.items()),
+                        key=lambda x: x[1]
+                    )
+                    
+                    summary_stats.update({
+                        'Most Active Developer': f"{most_active[0]} ({most_active[1]['Created']} PRs)",
+                        'Highest Merge Rate': f"{highest_merge_rate[0]} ({round(highest_merge_rate[1] * 100)}%)",
+                        'Average PRs per Developer': f"{round(sum(data['Created'] for data in developer_prs.values()) / len(developer_prs), 1)}"
+                    })
+
+            # Add summary statistics to the HTML report
+            summary_stats = {
+                'Avg Review Time': f"{sum(review_times) / len(review_times):.1f} hours" if review_times else "N/A",
+                'PR Merge Rate': f"{(org_stats['Merged PRs'] / org_stats['Total PRs'] * 100):.1f}%" if org_stats['Total PRs'] > 0 else "N/A",
+                'Active Repositories': org_stats['Total Repositories'],
+                'Team Size': org_stats['Active Contributors'],
+                'Review Participation Rate': f"{(len(reviewer_stats) / org_stats['Active Contributors'] * 100):.1f}%" if org_stats['Active Contributors'] > 0 else "N/A"
+            }
+
+            # Update the HTML template to include summary stats
+            html_template = '''
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>Engineering Metrics Report</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            margin: 20px;
+                            background-color: #f5f5f5;
+                        }
+                        .summary-stats {
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                            gap: 20px;
+                            margin: 20px 0;
+                        }
+                        .stat-card {
+                            background-color: white;
+                            padding: 20px;
+                            border-radius: 8px;
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                        }
+                        .stat-value {
+                            font-size: 24px;
+                            font-weight: bold;
+                            color: #4F46E5;
+                        }
+                        .stat-label {
+                            color: #6B7280;
+                            margin-top: 8px;
+                        }
+                        .chart-container {
+                            background-color: white;
+                            padding: 20px;
+                            margin: 20px 0;
+                            border-radius: 8px;
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                        }
+                        h1 {
+                            color: #333;
+                            text-align: center;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>Engineering Metrics Report</h1>
+                    <div class="summary-stats">
+                        {summary_stats}
+                    </div>
+                    <div class="charts">
+                        {charts}
+                    </div>
+                </body>
+            </html>
+            '''
 
         # Generate HTML report
         if charts:

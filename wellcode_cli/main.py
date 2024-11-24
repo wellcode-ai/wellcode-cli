@@ -1,5 +1,6 @@
 import rich_click as click
 from rich.console import Console
+import logging
 
 from wellcode_cli import __version__
 from .commands import config, report,chat_interface,chat,review
@@ -17,9 +18,23 @@ console = Console()
 
 @click.group(invoke_without_command=True)
 @click.version_option(version=__version__, prog_name="wellcode-cli")
+@click.option('-v', '--verbose', count=True, help="Increase verbosity (can be used multiple times)")
 @click.pass_context
-def cli(ctx):
+def cli(ctx, verbose):
     """🚀 Wellcode CLI - Engineering Metrics Analysis Tool"""
+    # Set up logging based on verbosity level
+    if verbose == 0:
+        log_level = logging.WARNING
+    elif verbose == 1:
+        log_level = logging.INFO
+    else:  # verbose >= 2
+        log_level = logging.DEBUG
+        
+    logging.basicConfig(
+        level=log_level,
+        format='%(levelname)s:%(message)s'
+    )
+    
     if ctx.invoked_subcommand is None:
         # Start interactive mode by default
         ctx.invoke(chat_interface)
