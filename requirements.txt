@@ -1,9 +1,7 @@
 PyGithub
-slackclient
 python-dotenv
 pandas
 anthropic
-slack_sdk
 splitio_client
 setuptools==75.6.0
 colorama

@@ -41,6 +41,13 @@ By leveraging advanced AI technology, we aim to create a more efficient, product
   - Change frequency
   - Error analysis
 
+- **AI-Powered Insights**:
+  - Performance trend analysis
+  - Bottleneck detection
+  - Team dynamics insights
+  - Improvement recommendations
+  - Comparative analysis
+
 ### Visualization
 - Interactive HTML reports with:
   - Timeline charts
@@ -62,7 +69,7 @@ By leveraging advanced AI technology, we aim to create a more efficient, product
 
 - Python 3.7+
 - Access to GitHub, Linear, and Split.io APIs
-- OpenAI API access for AI analysis (optional)
+- Anthropic API access for AI analysis (optional)
 
 ## Installation
 
@@ -104,7 +111,7 @@ brew install wellcode-cli
    GITHUB_ORG = 'your_github_organization'
    LINEAR_API_KEY = 'your_linear_api_key'
    SPLIT_API_KEY = 'your_split_api_key'
-   ANTHROPIC_API_KEY = 'your_openai_api_key'  # Optional, for AI analysis
+   ANTHROPIC_API_KEY = 'your_anthropic_api_key'  # For AI analysis
    ```
 
 2. Replace the placeholder values with your actual API tokens and settings.
@@ -118,17 +125,21 @@ brew install wellcode-cli
 wellcode-cli config
 ```
 
-2. Analyze metrics:
+2. Start interactive mode:
 ```bash
-wellcode-cli review
+wellcode-cli
 ```
 
-3. Generate visual report:
+3. Analyze metrics:
 ```bash
-wellcode-cli report
+wellcode-cli review [--team TEAM] [--user USER] [--start-date DATE] [--end-date DATE]
 ```
 
-4. Chat with Wellcode:
+4. Generate visual report:
+```bash
+wellcode-cli report [--output PATH] [--format html|pdf]
+
+5. Chat with Wellcode:
 ```bash
 wellcode-cli chat
 ```
@@ -146,6 +157,28 @@ The report command generates an interactive HTML report with:
 - Team performance indicators
 - And more...
 
+### Interactive Mode Commands
+
+When in interactive mode, you can:
+- Ask questions about metrics: "how is team frontend performing?"
+- Review specific periods: "check last month's performance"
+- Generate reports: "generate html report"
+- Analyze specific users: "show metrics for user johndoe"
+- Get AI insights: "any suggestions for improvement?"
+
+Examples:
+```bash
+# Direct commands
+wellcode-cli review --team frontend --start-date 2024-03-01 --end-date 2024-03-31
+wellcode-cli chat "how can we improve our PR review process?"
+wellcode-cli report --format pdf --output ~/Desktop/metrics
+
+# Interactive mode queries
+> check team frontend metrics for last week
+> how was john's performance yesterday
+> generate report for last month
+> what are our bottlenecks?
+```
 
 ### Setting up Environment Variables
 
@@ -156,7 +189,7 @@ export GITHUB_TOKEN='your_github_token'
 export GITHUB_ORG='your_github_organization'
 export LINEAR_API_KEY='your_linear_api_key'
 export SPLIT_API_KEY='your_split_api_key'
-export ANTHROPIC_API_KEY='your_openai_api_key'  # Optional, for AI analysis
+export ANTHROPIC_API_KEY='your_anthropic_api_key'  # For AI analysis
 ```
 
 Replace the placeholder values with your actual API tokens and settings.

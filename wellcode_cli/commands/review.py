@@ -54,6 +54,9 @@ def review(start_date, end_date, user, team):
     if user:
         console.print(f"👤 Filtering by user: [yellow]{user}[/]")
 
+    if team:
+        console.print(f"👥 Filtering by team: [yellow]{team}[/]")
+
     all_metrics = {}
     analysis_result = None
 

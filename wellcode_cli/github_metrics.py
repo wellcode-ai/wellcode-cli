@@ -516,9 +516,9 @@ def get_github_metrics(org_name, start_date, end_date, user_filter=None, team_fi
                 team_members = {member.login for member in team.get_members(role='all')}
                 console.print(f"[yellow]Found {len(team_members)} team members[/]")
             else:
-                console.print(f"[yellow]Team '{team_filter}' not found[/]")
+                console.print(f"[red]Team '{team_filter}' not found[/]")
         except Exception as e:
-            console.print(f"[yellow]Warning: Could not fetch team members for {team_filter}: {str(e)}[/]")
+            console.print(f"[red]Warning: Could not fetch team members for {team_filter}: {str(e)}[/]")
             console.print(f"[yellow]Error type: {type(e).__name__}[/]")
 
     start_date = ensure_datetime(start_date)
@@ -550,7 +550,7 @@ def get_github_metrics(org_name, start_date, end_date, user_filter=None, team_fi
             metrics_list = []
             for future in concurrent.futures.as_completed(future_to_repo):
                 repo = future_to_repo[future]
-                console.print(f"[yellow]Processing repository: {repo.name}[/]")
+                console.print(f"[yellow] 🔍 Processing repository: {repo.name}[/]")
                 try:
                     metrics = future.result()
                     metrics_list.append(metrics)
