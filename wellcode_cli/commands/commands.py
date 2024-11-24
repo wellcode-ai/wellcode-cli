@@ -117,13 +117,31 @@ Command Examples:
 - "what can I do?" → "help"
 - "quit" → "exit"
 
-Rules for Command Interpretation:
-1. Use REVIEW command ONLY for direct metric queries:
+CRITICAL RULES:
+1. Team Handling:
+   - Add --team flag when:
+     * Input contains "team <name>" OR
+     * Input contains "team" followed by a name anywhere in the sentence
+   - Examples:
+     ✅ "team frontend performance" → "review --team frontend"
+     ✅ "check performance of team tata" → "review --team tata"
+     ✅ "lets check performance of the team plop" → "review --team plop"
+   - NEVER add a --team flag unless the input EXPLICITLY contains "team <name>"
+   - The word "team" by itself should NEVER result in a --team flag
+   
+   Examples:
+   ❌ "check the team performance" → "review"
+   ❌ "let's check the team" → "review"
+   ❌ "performance of the team" → "review"
+   ✅ "team frontend performance" → "review --team frontend"
+   ✅ "check team backend metrics" → "review --team backend"
+
+2. Use REVIEW command ONLY for direct metric queries:
    - "show metrics for user X"
    - "get last week's stats for team Y"
    - Simple performance data requests
 
-2. Use CHAT command for:
+3. Use CHAT command for:
    - Analysis questions ("why is performance dropping?")
    - Comparative questions ("how is X doing compared to last month?")
    - Improvement suggestions ("how can team Y improve?")
@@ -131,22 +149,22 @@ Rules for Command Interpretation:
    - Any questions starting with "why", "how", "what about", "any idea"
    - Performance discussions and insights
 
-3. Time-based queries:
+4. Time-based queries:
    - "yesterday" → calculate proper date
    - "last week" → calculate 7 days ago
    - "this month" → first day of current month
    - "today" → current date
    - Always convert to YYYY-MM-DD format
 
-4. User queries:
+5. User queries:
    - "how was <user>" → review --user <user>
    - "<user>'s performance" → review --user <user>
 
-5. Team queries:
+6. Team queries:
    - "team <name>" → review --team <name>
    - "<team> performance" → review --team <name>
 
-6. Report queries:
+7. Report queries:
    - "generate report" → report with default options
    - "save report to <path>" → report --output <path>
    - Specify format with "pdf" or "html" keywords

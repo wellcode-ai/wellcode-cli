@@ -88,38 +88,48 @@ def execute_command(command_str: str) -> bool:
         ctx = click.get_current_context()
         
         if command_type == CommandType.REVIEW:
-            # Parse dates and user from the command string
+            # Clean up the command string and split properly
+            args = command_str.strip('"\'').split()
             date_args = {}
-            console.print(f"Args: {args}")
             
             # Parse args list properly
-            for i in range(0, len(args) - 1, 2):
-                key = args[i].strip('--')  # Remove '--' from key
-                value = args[i + 1]
-                date_args[key] = value
-            console.print(f"Date args: {date_args}")
+            i = 0
+            while i < len(args):
+                if args[i].startswith('--'):
+                    key = args[i].strip('--')
+                    if i + 1 < len(args):
+                        value = args[i + 1]
+                        date_args[key] = value
+                        i += 2
+                    else:
+                        i += 1
+                else:
+                    i += 1
+
             # Initialize dates
             now = datetime.now()
-            if 'start-date' in date_args and 'end-date' in date_args:
-                start_date = datetime.strptime(date_args['start-date'], '%Y-%m-%d')
-                end_date = datetime.strptime(date_args['end-date'], '%Y-%m-%d')
-            elif time_range == 'last_month':
-                # Calculate last month's dates
-                if now.month == 1:
-                    start_date = datetime(now.year - 1, 12, 1)
-                    end_date = datetime(now.year - 1, 12, 31)
+            
+            try:
+                if 'start-date' in date_args and 'end-date' in date_args:
+                    start_date = datetime.strptime(date_args['start-date'], '%Y-%m-%d')
+                    end_date = datetime.strptime(date_args['end-date'], '%Y-%m-%d')
                 else:
-                    start_date = datetime(now.year, now.month - 1, 1)
-                    end_date = (datetime(now.year, now.month, 1) - timedelta(days=1))
-            
-            # Ensure proper time boundaries
-            end_date = end_date.replace(hour=23, minute=59, second=59)
-            start_date = start_date.replace(hour=0, minute=0, second=0)
-            
-            # Get team from args
-            team = next((args[i+1] for i, arg in enumerate(args) if arg in ['--team', '-t']), None)
-            
-            ctx.invoke(review, start_date=start_date, end_date=end_date, user=None, team=team)
+                    # Default to last 7 days
+                    end_date = now
+                    start_date = end_date - timedelta(days=7)
+
+                # Ensure proper time boundaries
+                end_date = end_date.replace(hour=23, minute=59, second=59)
+                start_date = start_date.replace(hour=0, minute=0, second=0)
+
+                # Get team from args
+                team = date_args.get('team')
+                
+                ctx.invoke(review, start_date=start_date, end_date=end_date, team=team)
+                
+            except Exception as e:
+                console.print(f"[red]Error processing dates: {e}[/]")
+                return False
         elif command_type == CommandType.CONFIG:
             ctx.invoke(config)
         elif command_type == CommandType.HELP:
