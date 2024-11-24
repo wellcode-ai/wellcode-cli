@@ -119,7 +119,7 @@ Command Examples:
 - "quit" → "exit"
 
 Rules for Command Interpretation:
-1. Time-based queries:
+1. Time-based queries:;.
    - "yesterday" → calculate proper date
    - "last week" → calculate 7 days ago
    - "this month" → first day of current month
