@@ -6,7 +6,6 @@ import re
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
-from rich.table import Table
 import concurrent.futures
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from datetime import datetime, timezone, date
@@ -182,7 +181,28 @@ def get_repo_metrics(repo, start_date, end_date, user_filter, team_filter, team_
                 'comments_per_pr': {},
                 'time_to_merge': [],
                 'lead_times': [],
-                'user_contributions': defaultdict(lambda: {'created': 0, 'merged': 0}),
+                'user_contributions': defaultdict(lambda: {
+                    'created': 0,
+                    'merged': 0,
+                    'time_to_merge': [],
+                    'lead_times': [],
+                    'review_cycles': [],
+                    'changes_per_pr': [],
+                    'files_changed': [],
+                    'commits_count': [],
+                    'review_comments_received': 0,
+                    'review_comments_given': 0,
+                    'reviews_performed': 0,
+                    'blocking_reviews_given': 0,
+                    'self_merges': 0,
+                    'cross_team_reviews': 0,
+                    'review_wait_times': [],
+                    'merge_distribution': {
+                        'business_hours': 0,
+                        'after_hours': 0,
+                        'weekends': 0
+                    }
+                }),
                 'review_metrics': {
                     'time_to_first_review': [],
                     'review_cycles': [],
@@ -245,121 +265,13 @@ def get_repo_metrics(repo, start_date, end_date, user_filter, team_filter, team_
 
     return None
 
-def process_pr(pr, repo_metrics, start_date, end_date, user_filter, team_filter, team_members=None):
-    """Process a single PR with proper merge detection"""
-    try:
-        # Skip if team filter is active and author is not in team
-        if team_filter and pr.user and pr.user.login not in (team_members or set()):
-            return
-        
-        # Convert GitHub timestamps to naive datetimes by removing timezone info
-        created_at = pr.created_at.replace(tzinfo=None)
-        merged_at = pr.merged_at.replace(tzinfo=None) if pr.merged_at else None
-        closed_at = pr.closed_at.replace(tzinfo=None) if pr.closed_at else None
+def is_business_hours(dt):
+    """Check if time is during business hours (9am-5pm)."""
+    return 9 <= dt.hour < 17 and dt.weekday() < 5
 
-        # Convert input dates to naive datetimes for comparison
-        start_date = start_date.replace(tzinfo=None)
-        end_date = end_date.replace(tzinfo=None)
-
-        # Check if PR is within date range
-        if created_at < start_date or created_at > end_date:
-            return
-
-        # Basic PR metrics
-        repo_metrics['prs_created'] += 1
-        
-        # Check if PR is merged
-        if pr.merged:  # Add proper merge check
-            repo_metrics['prs_merged'] += 1
-            
-            # Check if merged to main/master
-            base_branch = pr.base.ref.lower()
-            if base_branch in ['main', 'master']:
-                repo_metrics['prs_merged_to_main'] += 1
-            
-            # Record merge time if available
-            if merged_at:
-                merge_time = (merged_at - created_at).total_seconds() / 3600  # hours
-                repo_metrics['time_to_merge'].append(merge_time)
-
-        # Process comments
-        comments = list(pr.get_comments())
-        repo_metrics['comments_per_pr'][pr.number] = len(comments)
-
-        # Calculate time to merge
-        if merged_at:
-            time_to_merge = (merged_at - created_at).total_seconds() / 3600
-            repo_metrics['time_to_merge'].append(time_to_merge)
-            repo_metrics['lead_times'].append(time_to_merge)
-
-        # Process reviews
-        reviews = list(pr.get_reviews())
-        for review in reviews:
-            review_submitted_at = review.submitted_at.replace(tzinfo=None) if review.submitted_at else None
-            if review_submitted_at:
-                time_to_review = (review_submitted_at - created_at).total_seconds() / 3600
-                repo_metrics['review_metrics']['time_to_first_review'].append(time_to_review)
-
-        # Process commits
-        commits = list(pr.get_commits())
-        repo_metrics['code_quality']['commit_count_per_pr'].append(len(commits))
-        
-        # Process user contributions
-        author = pr.user.login if pr.user else 'unknown'
-        if not user_filter or author == user_filter:
-            repo_metrics['user_contributions'][author]['created'] += 1
-            if pr.merged:
-                repo_metrics['user_contributions'][author]['merged'] += 1
-
-        # Process review comments
-        review_comments = list(pr.get_review_comments())
-        comments_count = len(review_comments)
-        if comments_count > 0:  # Only add if there are comments
-            repo_metrics['collaboration']['review_comments_per_pr'][pr.number] = comments_count
-
-        # Process file changes
-        if pr.additions is not None and pr.deletions is not None:
-            total_changes = pr.additions + pr.deletions
-            if total_changes > 0:  # Only add if there are changes
-                repo_metrics['code_quality']['changes_per_pr'].append(total_changes)
-
-        if pr.changed_files is not None and pr.changed_files > 0:
-            repo_metrics['code_quality']['files_changed_per_pr'].append(pr.changed_files)
-
-        # Track unique reviewers
-        reviewers = set()
-        for review in reviews:
-            if review.user and review.user.login != pr.user.login:  # Exclude self-reviews
-                reviewers.add(review.user.login)
-        
-        if reviewers:  # Only add if there are reviewers
-            repo_metrics['review_metrics']['reviewers_per_pr'][pr.number] = reviewers
-            
-            # Check for cross-team reviews (you might want to customize this logic)
-            if len(reviewers) > 1:
-                repo_metrics['collaboration']['cross_team_reviews'] += 1
-
-        # Check for self-merges
-        if pr.merged and pr.merged_by:
-            if pr.user and pr.merged_by.login == pr.user.login:
-                repo_metrics['collaboration']['self_merges'] += 1
-
-        # Process merge timing
-        if merged_at:
-            merge_hour = merged_at.hour
-            merge_weekday = merged_at.weekday()
-            
-            if merge_weekday < 5:  # Weekday
-                if 9 <= merge_hour < 17:  # Business hours (9 AM to 5 PM)
-                    repo_metrics['timing_metrics']['merge_time_distribution']['business_hours'] += 1
-                else:
-                    repo_metrics['timing_metrics']['merge_time_distribution']['after_hours'] += 1
-            else:  # Weekend
-                repo_metrics['timing_metrics']['merge_time_distribution']['weekends'] += 1
-
-    except Exception as e:
-        logging.error(f"Error processing PR {pr.number} in {pr.base.repo.name}: {str(e)}")
-        raise
+def is_weekend(dt):
+    """Check if date is weekend."""
+    return dt.weekday() >= 5
 
 def ensure_datetime(dt):
     """Utility function to ensure a date or datetime object is a timezone-aware datetime"""
@@ -372,8 +284,339 @@ def ensure_datetime(dt):
             dt = dt.replace(tzinfo=timezone.utc)
         return dt
     except Exception as e:
-        console.print(f"[red]Error converting datetime: {str(e)}[/]")
+        logging.warning(f"Error converting datetime: {str(e)}")
         return None
+
+def process_pr(pr, repo_metrics, start_date, end_date, user_filter, team_filter, team_members=None):
+    """Process a single pull request and update metrics."""
+    # Skip if PR is outside date range
+    if not (start_date <= pr.created_at.replace(tzinfo=timezone.utc) <= end_date):
+        return
+
+    # Get PR author
+    author = pr.user.login
+    
+    # Initialize metrics for new author
+    if author not in repo_metrics['user_contributions']:
+        repo_metrics['user_contributions'][author] = {
+            'created': 0,
+            'merged': 0,
+            'time_to_merge': [],
+            'changes_per_pr': [],
+            'files_changed': [],
+            'commits_count': [],
+            'review_comments_received': 0,
+            'review_comments_given': {},
+            'reviews_performed': set(),
+            'blocking_reviews_given': 0,
+            'self_merges': 0,
+            'cross_team_reviews': 0,
+            'review_wait_times': [],
+            'lead_times': [],
+            'review_cycles': []
+        }
+
+    # Update basic PR metrics
+    repo_metrics['prs_created'] += 1
+    repo_metrics['user_contributions'][author]['created'] += 1
+
+    if pr.merged:
+        repo_metrics['prs_merged'] += 1
+        repo_metrics['user_contributions'][author]['merged'] += 1
+        
+        # Track self-merges
+        if pr.merged_by and pr.merged_by.login == author:
+            repo_metrics['collaboration']['self_merges'] += 1
+            repo_metrics['user_contributions'][author]['self_merges'] += 1
+
+        # Calculate merge time
+        merge_time = (pr.merged_at - pr.created_at).total_seconds() / 3600
+        repo_metrics['time_to_merge'].append(merge_time)
+        repo_metrics['user_contributions'][author]['time_to_merge'].append(merge_time)
+
+        # Track merged to main
+        if pr.base.ref == 'main' or pr.base.ref == 'master':
+            repo_metrics['prs_merged_to_main'] += 1
+
+        # Process timing metrics for merged PRs
+        try:
+            if pr.merged:
+                merge_time = ensure_datetime(pr.merged_at)
+                if merge_time:
+                    if is_weekend(merge_time):
+                        repo_metrics['timing_metrics']['merge_time_distribution']['weekends'] += 1
+                    elif is_business_hours(merge_time):
+                        repo_metrics['timing_metrics']['merge_time_distribution']['business_hours'] += 1
+                    else:
+                        repo_metrics['timing_metrics']['merge_time_distribution']['after_hours'] += 1
+                    
+                    logging.info(f"PR #{pr.number} - Merged during: {'weekend' if is_weekend(merge_time) else 'business hours' if is_business_hours(merge_time) else 'after hours'}")
+        except Exception as e:
+            logging.warning(f"Error processing merge timing for PR {pr.number}: {str(e)}")
+
+        # Calculate lead time for merged PRs
+        try:
+            commits = list(pr.get_commits())
+            if commits:
+                # Get first commit date (earliest commit)
+                first_commit = ensure_datetime(commits[-1].commit.committer.date)
+                merge_time = ensure_datetime(pr.merged_at)
+                
+                if first_commit and merge_time:
+                    # Calculate lead time (first commit to merge)
+                    lead_time = (merge_time - first_commit).total_seconds() / 3600
+                    repo_metrics['lead_times'].append(lead_time)
+                    repo_metrics['user_contributions'][author]['lead_times'].append(lead_time)
+                    
+                    logging.info(f"PR #{pr.number} - Lead Time: {lead_time:.1f}h (First Commit: {first_commit}, Merged: {merge_time})")
+        except Exception as e:
+            logging.warning(f"Error calculating lead time for PR {pr.number}: {str(e)}")
+
+    # Initialize review cycle tracking
+    review_cycles = 0
+    last_review_state = None
+    last_commit_sha = None
+    
+    # Get all commits and reviews in chronological order
+    try:
+        commits = list(pr.get_commits())
+        reviews = list(pr.get_reviews())
+        
+        # Track unique reviewers
+        pr_reviewers = {review.user.login for review in reviews if review.user and review.user.login != pr.user.login}
+        
+        # Sort reviews by submission time
+        reviews = sorted(reviews, key=lambda x: x.submitted_at if x.submitted_at else datetime.min.replace(tzinfo=timezone.utc))
+        
+        # Track review cycles (changes requested -> new commit)
+        for review in reviews:
+            if not review.user or review.user.login == pr.user.login:  # Skip self-reviews
+                continue
+                
+            if review.state == 'CHANGES_REQUESTED':
+                # Count as new cycle if this is a new changes request
+                if last_review_state != 'CHANGES_REQUESTED':
+                    review_cycles += 1
+                    
+                # Track the commit SHA at time of review
+                last_commit_sha = review.commit_id
+                
+            elif review.state == 'APPROVED':
+                # If there were changes after last "changes requested"
+                if last_review_state == 'CHANGES_REQUESTED' and last_commit_sha:
+                    current_commit_sha = review.commit_id
+                    if current_commit_sha != last_commit_sha:
+                        review_cycles += 1
+                        
+            last_review_state = review.state
+        
+        # Only store cycles if we had any reviews
+        if reviews:
+            repo_metrics['review_metrics']['review_cycles'].append(review_cycles)
+            logging.info(f"PR #{pr.number} - Review Cycles: {review_cycles}")
+            
+            # Store for the author
+            author = pr.user.login
+            if author in repo_metrics['user_contributions']:
+                repo_metrics['user_contributions'][author]['review_cycles'].append(review_cycles)
+                
+    except Exception as e:
+        logging.warning(f"Error calculating review cycles for PR {pr.number}: {str(e)}")
+
+    # Update PR-level metrics
+    if pr_reviewers:
+        repo_metrics['review_metrics']['reviewers_per_pr'][pr.number] = pr_reviewers
+        repo_metrics['review_metrics']['review_cycles'].append(review_cycles)
+
+    # Process review comments
+    try:
+        # Get both review comments and issue comments
+        review_comments = list(pr.get_review_comments())
+        issue_comments = list(pr.get_comments())
+        total_comments = len(review_comments) + len(issue_comments)
+
+        # Track comments per PR
+        repo_metrics['collaboration']['review_comments_per_pr'][pr.number] = total_comments
+
+        # Track comments per user
+        for comment in review_comments + issue_comments:
+            commenter = comment.user.login if comment.user else None
+            if commenter:
+                if commenter not in repo_metrics['user_contributions']:
+                    repo_metrics['user_contributions'][commenter] = {
+                        'created': 0,
+                        'merged': 0,
+                        'review_comments_given': {},
+                        # ... other user metrics ...
+                    }
+                
+                if pr.number not in repo_metrics['user_contributions'][commenter]['review_comments_given']:
+                    repo_metrics['user_contributions'][commenter]['review_comments_given'][pr.number] = 0
+                repo_metrics['user_contributions'][commenter]['review_comments_given'][pr.number] += 1
+
+    except Exception as e:
+        logging.warning(f"Error processing PR comments: {str(e)}")
+
+    # Enhanced code quality metrics
+    try:
+        # Detect reverts and hotfixes
+        title_lower = pr.title.lower()
+        if title_lower.startswith('revert'):
+            repo_metrics['code_quality']['revert_count'] += 1
+        if any(term in title_lower for term in ['hotfix', 'hot-fix', 'hot fix']):
+            repo_metrics['code_quality']['hotfix_count'] += 1
+            
+        # Calculate changes
+        changes = pr.additions + pr.deletions
+        repo_metrics['code_quality']['changes_per_pr'].append(changes)
+        
+        # Calculate files changed
+        files_changed = len(list(pr.get_files()))
+        repo_metrics['code_quality']['files_changed_per_pr'].append(files_changed)
+        
+        # Calculate commit count
+        commits = list(pr.get_commits())
+        repo_metrics['code_quality']['commit_count_per_pr'].append(len(commits))
+        
+        # Store metrics for the author
+        if author in repo_metrics['user_contributions']:
+            repo_metrics['user_contributions'][author]['changes_per_pr'].append(changes)
+            repo_metrics['user_contributions'][author]['files_changed'].append(files_changed)
+            repo_metrics['user_contributions'][author]['commits_count'].append(len(commits))
+            
+    except Exception as e:
+        logging.warning(f"Error processing code quality metrics for PR {pr.number}: {str(e)}")
+
+    # Calculate bottleneck metrics
+    try:
+        current_time = datetime.now(timezone.utc)
+        pr_created = ensure_datetime(pr.created_at)
+        
+        if not pr_created:
+            return
+            
+        pr_age = (current_time - pr_created).total_seconds() / 3600  # hours
+        
+        # Stale PRs: Open PRs without activity in last 7 days (168 hours)
+        if not pr.merged:
+            # Get all activity timestamps
+            timestamps = [
+                ensure_datetime(pr.updated_at),
+                *[ensure_datetime(c.commit.committer.date) for c in pr.get_commits()],
+                *[ensure_datetime(r.submitted_at) for r in pr.get_reviews()]
+            ]
+            
+            # Filter out None values and get latest activity
+            timestamps = [t for t in timestamps if t is not None]
+            
+            if timestamps:
+                last_activity = max(timestamps)
+                hours_since_activity = (current_time - last_activity).total_seconds() / 3600
+                if hours_since_activity > 168:  # 7 days
+                    repo_metrics['bottleneck_metrics']['stale_prs'] += 1
+                    logging.info(f"PR #{pr.number} marked as stale - {hours_since_activity:.1f}h since last activity")
+
+        # Long-running PRs: Open for more than 14 days (336 hours)
+        if pr_age > 336:
+            repo_metrics['bottleneck_metrics']['long_running_prs'] += 1
+            logging.info(f"PR #{pr.number} marked as long-running - Age: {pr_age:.1f}h")
+
+        # Review wait time: Time to first meaningful review
+        reviews = sorted(list(pr.get_reviews()), key=lambda x: x.submitted_at)
+        meaningful_reviews = [r for r in reviews if r.state in ['APPROVED', 'CHANGES_REQUESTED']]
+        
+        if meaningful_reviews:
+            first_review = meaningful_reviews[0]
+            wait_time = (ensure_datetime(first_review.submitted_at) - pr_created).total_seconds() / 3600
+            repo_metrics['bottleneck_metrics']['review_wait_time'].append(wait_time)
+            logging.info(f"PR #{pr.number} - Review wait time: {wait_time:.1f}h")
+
+    except Exception as e:
+        logging.warning(f"Error calculating bottleneck metrics for PR {pr.number}: {str(e)}")
+
+    # Enhanced review metrics tracking
+    try:
+        reviews = list(pr.get_reviews())
+        meaningful_reviews = [r for r in reviews if r.state in ['APPROVED', 'CHANGES_REQUESTED']]
+        reviews_by_date = sorted(meaningful_reviews, key=lambda x: x.submitted_at)
+        
+        # Time to first review
+        if reviews_by_date:
+            first_review_time = (reviews_by_date[0].submitted_at - pr.created_at).total_seconds() / 3600
+            repo_metrics['review_metrics']['time_to_first_review'].append(first_review_time)
+        
+        # Track review cycles and blocking reviews
+        current_review_cycle = 0
+        last_commit_sha = None
+        
+        for review in reviews_by_date:
+            if review.state == 'CHANGES_REQUESTED':
+                repo_metrics['review_metrics']['blocking_reviews'] += 1
+                current_review_cycle += 1
+                last_commit_sha = review.commit_id
+            elif review.state == 'APPROVED' and last_commit_sha and review.commit_id != last_commit_sha:
+                current_review_cycle += 1
+        
+        if current_review_cycle > 0:
+            repo_metrics['review_metrics']['review_cycles'].append(current_review_cycle)
+            
+        # Track reviewers
+        pr_reviewers = {review.user.login for review in reviews_by_date 
+                       if review.user and review.user.login != pr.user.login}
+        if pr_reviewers:
+            repo_metrics['review_metrics']['reviewers_per_pr'][pr.number].update(pr_reviewers)
+            
+            # Track cross-team reviews
+            if team_members:
+                external_reviewers = [r for r in pr_reviewers if r not in team_members]
+                if external_reviewers:
+                    repo_metrics['collaboration']['cross_team_reviews'] += len(external_reviewers)
+                    
+    except Exception as e:
+        logging.warning(f"Error processing review metrics for PR {pr.number}: {str(e)}")
+
+    # Update user metrics alongside existing metrics
+    if pr.merged:
+        # Existing code for merged PRs
+        repo_metrics['prs_merged'] += 1
+        repo_metrics['user_contributions'][author]['merged'] += 1
+        
+        # Add merge timing per user
+        merge_time = ensure_datetime(pr.merged_at)
+        if merge_time:
+            timing_key = 'weekends' if is_weekend(merge_time) else 'business_hours' if is_business_hours(merge_time) else 'after_hours'
+            repo_metrics['user_contributions'][author]['merge_distribution'][timing_key] += 1
+
+    # Update review metrics
+    try:
+        reviews = list(pr.get_reviews())
+        for review in reviews:
+            if not review.user:
+                continue
+                
+            reviewer = review.user.login
+            repo_metrics['user_contributions'][reviewer]['reviews_performed'] += 1
+            
+            if review.state == 'CHANGES_REQUESTED':
+                repo_metrics['user_contributions'][reviewer]['blocking_reviews_given'] += 1
+                
+            # Track cross-team reviews
+            if team_members and reviewer not in team_members:
+                repo_metrics['user_contributions'][reviewer]['cross_team_reviews'] += 1
+    except Exception as e:
+        logging.warning(f"Error processing review metrics for PR {pr.number}: {str(e)}")
+
+    # Update code metrics per user
+    try:
+        changes = pr.additions + pr.deletions
+        files_changed = len(list(pr.get_files()))
+        commits = len(list(pr.get_commits()))
+        
+        repo_metrics['user_contributions'][author]['changes_per_pr'].append(changes)
+        repo_metrics['user_contributions'][author]['files_changed'].append(files_changed)
+        repo_metrics['user_contributions'][author]['commits_count'].append(commits)
+    except Exception as e:
+        logging.warning(f"Error processing code metrics for PR {pr.number}: {str(e)}")
 
 def is_within_range(date_to_check, start_date, end_date):
     """Safely check if a date is within a range"""
@@ -578,235 +821,189 @@ def get_github_metrics(org_name, start_date, end_date, user_filter=None, team_fi
     return combined_metrics
 
 def display_github_metrics(metrics):
-    console.print("\n[bold green]GitHub Metrics Analysis[/]")
+    """Display GitHub metrics with properly aligned tables."""
+    console = Console()
     
-    # Main metrics table
-    console.print("\n[bold magenta]Core Metrics[/]")
-    main_table = Table(show_header=True, header_style="bold magenta")
-    main_table.add_column("Metric", style="cyan")
-    main_table.add_column("Value", justify="right")
-    
-    main_table.add_row("Pull Requests Created (Total)", str(metrics.get('prs_created', 0)))
-    main_table.add_row("Pull Requests Merged (Total)", str(metrics.get('prs_merged', 0)))
-    main_table.add_row("Pull Requests Merged to Main Branch", str(metrics.get('prs_merged_to_main', 0)))
-    if metrics.get('deployment_frequency'):
-        main_table.add_row("Deployments per Day", f"{metrics['deployment_frequency']:.2f}/day")
-    if metrics.get('median_lead_time'):
-        main_table.add_row("Median Time from Creation to Merge", f"{metrics['median_lead_time']:.1f} hours")
-    
-    console.print(main_table)
+    # Header
+    console.print("\n[bold cyan]┌───────────────────────────────────┐")
+    console.print("[bold cyan]│     🚀 GitHub Engineering Matrix  │")
+    console.print("[bold cyan]└───────────────────────────────────┘")
 
-    # Review Process Metrics
+    # 1. Core PR Metrics
+    console.print("\n[bold green]📊 Pull Request Matrix")
+    console.print("┌──────────────────────────┬─────────┐\n"
+                  "│ PRs Created              │ {0:>7d} │\n"
+                  "│ PRs Merged                {1:>7d} │\n"
+                  "│ Merged to Main           │ {2:>7d} │\n"
+                  "│ Deployment Freq          │ {3:>7.2f} │\n"
+                  "│ Median Lead Time         │ {4:>6.1f}h │\n"
+                  "└─────────────────────────┴─────────┘".format(
+                      metrics.get('prs_created', 0),
+                      metrics.get('prs_merged', 0),
+                      metrics.get('prs_merged_to_main', 0),
+                      metrics.get('deployment_frequency', 0),
+                      metrics.get('median_lead_time', 0)))
+
+    # 2. Review Process Metrics
     if 'review_metrics' in metrics:
-        console.print("\n[bold magenta]Review Process[/]")
-        review_table = Table(show_header=True, header_style="bold magenta")
-        review_table.add_column("Metric", style="cyan")
-        review_table.add_column("Value", justify="right")
-        
-        review_metrics = metrics['review_metrics']
-        
-        # Safely calculate averages with error handling
-        try:
-            avg_time_to_review = statistics.mean(review_metrics['time_to_first_review']) if review_metrics.get('time_to_first_review') else 0
-            review_table.add_row("Average Time Until First Review", f"{avg_time_to_review:.1f} hours")
-        except statistics.StatisticsError:
-            review_table.add_row("Average Time Until First Review", "N/A")
-            
-        try:
-            avg_review_cycles = statistics.mean(review_metrics['review_cycles']) if review_metrics.get('review_cycles') else 0
-            review_table.add_row("Avg Review Cycles", f"{avg_review_cycles:.1f}")
-        except statistics.StatisticsError:
-            review_table.add_row("Avg Review Cycles", "N/A")
-        
-        review_table.add_row("Blocking Reviews", str(review_metrics.get('blocking_reviews', 0)))
-        
-        try:
-            reviewers_per_pr = review_metrics.get('reviewers_per_pr', {})
-            if reviewers_per_pr:
-                avg_reviewers = statistics.mean(len(reviewers) for reviewers in reviewers_per_pr.values())
-                review_table.add_row("Avg Reviewers per PR", f"{avg_reviewers:.1f}")
-            else:
-                review_table.add_row("Avg Reviewers per PR", "N/A")
-        except statistics.StatisticsError:
-            review_table.add_row("Avg Reviewers per PR", "N/A")
-        
-        console.print(review_table)
+        review = metrics['review_metrics']
+        console.print("\n[bold yellow]🔍 Review Process Monitor")
+        console.print("┌──────────────────────────┬─────────┐\n"
+                      "│ Time to First Review     │ {0:>6.1f}h │\n"
+                      "│ Review Cycles            │ {1:>7.1f} │\n"
+                      "│ Blocking Reviews         │ {2:>7d} │\n"
+                      "│ Unique Reviewers         │ {3:>7d} │\n"
+                      "└─────────────────────────-┴─────────┘".format(
+                         statistics.mean(review['time_to_first_review']) if review['time_to_first_review'] else 0,
+                         statistics.mean(review['review_cycles']) if review['review_cycles'] else 0,
+                         review.get('blocking_reviews', 0),
+                         sum(len(r) for r in review['reviewers_per_pr'].values())))
 
-    # Code Quality Metrics
+    # 3. Code Quality Metrics
     if 'code_quality' in metrics:
-        console.print("\n[bold magenta]Code Quality[/]")
-        quality_table = Table(show_header=True, header_style="bold magenta")
-        quality_table.add_column("Metric", style="cyan")
-        quality_table.add_column("Value", justify="right")
-        
-        code_quality = metrics['code_quality']
-        
-        try:
-            avg_changes = statistics.mean(code_quality['changes_per_pr']) if code_quality.get('changes_per_pr') else 0
-            quality_table.add_row("Average Lines Changed per Pull Request", f"{avg_changes:.0f} lines")
-        except statistics.StatisticsError:
-            quality_table.add_row("Average Lines Changed per Pull Request", "N/A")
-            
-        try:
-            avg_files = statistics.mean(code_quality['files_changed_per_pr']) if code_quality.get('files_changed_per_pr') else 0
-            quality_table.add_row("Avg Files Changed", f"{avg_files:.1f}")
-        except statistics.StatisticsError:
-            quality_table.add_row("Avg Files Changed", "N/A")
-        
-        quality_table.add_row("Hotfix Count", str(code_quality.get('hotfix_count', 0)))
-        quality_table.add_row("Revert Count", str(code_quality.get('revert_count', 0)))
-        
-        console.print(quality_table)
+        quality = metrics['code_quality']
+        console.print("\n[bold magenta]🧬 Code Quality Scanner")
+        console.print("┌──────────────────────────┬─────────┐\n"
+                      "│ Avg Changes/PR           │ {0:>7.0f} │\n"
+                      "│ Avg Files/PR             │ {1:>7.0f} │\n"
+                      "│ Avg Commits/PR           │ {2:>7.0f} │\n"
+                      "│ Reverts                  │ {3:>7d} │\n"
+                      "│ Hotfixes                 │ {4:>7d} │\n"
+                      "└──────────────────────────┴─────────┘".format(
+                         statistics.mean(quality['changes_per_pr']) if quality['changes_per_pr'] else 0,
+                         statistics.mean(quality['files_changed_per_pr']) if quality['files_changed_per_pr'] else 0,
+                         statistics.mean(quality['commit_count_per_pr']) if quality['commit_count_per_pr'] else 0,
+                         quality.get('revert_count', 0),
+                         quality.get('hotfix_count', 0)))
 
-    # Collaboration Metrics
+    # 4. Collaboration Metrics
     if 'collaboration' in metrics:
-        console.print("\n[bold magenta]Team Collaboration[/]")
-        collab_table = Table(show_header=True, header_style="bold magenta")
-        collab_table.add_column("Metric", style="cyan")
-        collab_table.add_column("Value", justify="right")
-        
-        collaboration = metrics['collaboration']
-        
-        try:
-            review_comments = collaboration.get('review_comments_per_pr', {})
-            if review_comments:
-                avg_comments = statistics.mean(review_comments.values())
-                collab_table.add_row("Avg Review Comments", f"{avg_comments:.1f}")
-            else:
-                collab_table.add_row("Avg Review Comments", "N/A")
-        except statistics.StatisticsError:
-            collab_table.add_row("Avg Review Comments", "N/A")
-        
-        collab_table.add_row("Self-Merged Pull Requests", str(collaboration.get('self_merges', 0)))
-        collab_table.add_row("Cross-Team Review Count", str(collaboration.get('cross_team_reviews', 0)))
-        
-        console.print(collab_table)
+        collab = metrics['collaboration']
+        console.print("\n[bold cyan]🤝 Team Collaboration Grid")
+        console.print("┌──────────────────────────┬─────────┐\n"
+                      "│ Cross-Team Reviews       │ {0:>7d} │\n"
+                      "│ Self-Merges              │ {1:>7d} │\n"
+                      "│ Avg Comments/PR          │ {2:>7.1f} │\n"
+                      "└──────────────────────────┴─────────┘".format(
+                         collab.get('cross_team_reviews', 0),
+                         collab.get('self_merges', 0),
+                         statistics.mean(list(collab['review_comments_per_pr'].values())) if collab['review_comments_per_pr'] else 0))
 
-    # Timing Metrics
-    if 'timing_metrics' in metrics:
-        console.print("\n[bold magenta]Timing Distribution[/]")
-        timing_table = Table(show_header=True, header_style="bold magenta")
-        timing_table.add_column("Time Period", style="cyan")
-        timing_table.add_column("Count", justify="right")
-        
-        timing = metrics['timing_metrics'].get('merge_time_distribution', {})
-        
-        timing_table.add_row("Merges During Business Hours (9-5)", str(timing.get('business_hours', 0)))
-        timing_table.add_row("Merges After Business Hours", str(timing.get('after_hours', 0)))
-        timing_table.add_row("Merges During Weekends", str(timing.get('weekends', 0)))
-        
-        console.print(timing_table)
-
-    # Bottleneck Metrics
+    # 5. Bottleneck Indicators
     if 'bottleneck_metrics' in metrics:
-        console.print("\n[bold magenta]Process Bottlenecks[/]")
-        bottleneck_table = Table(show_header=True, header_style="bold magenta")
-        bottleneck_table.add_column("Metric", style="cyan")
-        bottleneck_table.add_column("Value", justify="right")
-        
-        bottlenecks = metrics['bottleneck_metrics']
-        
-        bottleneck_table.add_row("Stale Pull Requests (>7 days)", str(bottlenecks.get('stale_prs', 0)))
-        bottleneck_table.add_row("Long-Running Pull Requests (>14 days)", str(bottlenecks.get('long_running_prs', 0)))
-        
-        try:
-            wait_times = bottlenecks.get('review_wait_time', [])
-            if wait_times:
-                avg_wait_time = statistics.mean(wait_times)
-                bottleneck_table.add_row("Avg Review Wait Time", f"{avg_wait_time:.1f} hours")
-            else:
-                bottleneck_table.add_row("Avg Review Wait Time", "N/A")
-        except statistics.StatisticsError:
-            bottleneck_table.add_row("Avg Review Wait Time", "N/A")
-        
-        console.print(bottleneck_table)
+        bottleneck = metrics['bottleneck_metrics']
+        console.print("\n[bold red]⚠️  System Bottlenecks")
+        console.print("┌──────────────────────────┬─────────┐\n"
+                      "│ Stale PRs                │ {0:>7d} │\n"
+                      "│ Long-Running PRs         │ {1:>7d} │\n"
+                      "│ Avg Review Wait          │ {2:>6.1f}h │\n"
+                      "└──────────────────────────┴─────────┘".format(
+                         bottleneck.get('stale_prs', 0),
+                         bottleneck.get('long_running_prs', 0),
+                         statistics.mean(bottleneck['review_wait_time']) if bottleneck['review_wait_time'] else 0))
 
-    # User Contributions
-    if 'user_contributions' in metrics and metrics['user_contributions']:
-        console.print("\n[bold magenta]User Contributions[/]")
-        user_table = Table(show_header=True, header_style="bold magenta")
-        user_table.add_column("User", style="cyan")
-        user_table.add_column("Pull Requests Created", justify="right")
-        user_table.add_column("Pull Requests Merged", justify="right")
-        
-        # Sort users by number of PRs created
+    # 6. User Contributions (Top 5)
+    if metrics.get('user_contributions'):
+        console.print("\n[bold green]👥 Top Contributors")
+        table = ["┌─────────────────┬──────────────┬─────────────┐"]
         sorted_users = sorted(
             metrics['user_contributions'].items(),
             key=lambda x: x[1]['created'],
             reverse=True
-        )
-        
-        for user, stats in sorted_users[:10]:  # Show top 10 contributors
-            user_table.add_row(
-                user,
-                str(stats['created']),
-                str(stats['merged'])
-            )
-        
-        console.print(user_table)
+        )[:5]
+        for user, stats in sorted_users:
+            table.append("│ {:<15}  Created: {:>3d} │ Merged: {:>3d} │".format(
+                user, stats['created'], stats['merged']))
+        table.append("└─────────────────┴──────────────┴─────────────┘")
+        console.print("\n".join(table))
 
-    # Summary Statistics
-    console.print("\n[bold magenta]Summary Statistics[/]")
-    summary_table = Table(show_header=True, header_style="bold magenta")
-    summary_table.add_column("Metric", style="cyan")
-    summary_table.add_column("Value", justify="right")
+    # Add timing metrics display
+    console.print("\n[bold blue]⏰ Merge Timing Analysis")
+    console.print("┌──────────────────────────┬─────────┐")
     
-    try:
-        if metrics.get('time_to_merge'):
-            avg_time = statistics.mean(metrics['time_to_merge'])
-            summary_table.add_row("Average Time from Creation to Merge", f"{avg_time:.1f} hours")
-        else:
-            summary_table.add_row("Average Time from Creation to Merge", "N/A")
-    except statistics.StatisticsError:
-        summary_table.add_row("Average Time from Creation to Merge", "N/A")
+    timing = metrics['timing_metrics']['merge_time_distribution']
+    total_merges = sum(timing.values())
     
-    try:
-        if metrics.get('lead_times'):
-            median_lead = statistics.median(metrics['lead_times'])
-            summary_table.add_row("Median Lead Time", f"{median_lead:.1f} hours")
-        else:
-            summary_table.add_row("Median Lead Time", "N/A")
-    except statistics.StatisticsError:
-        summary_table.add_row("Median Lead Time", "N/A")
+    if total_merges > 0:
+        business_pct = (timing['business_hours'] / total_merges) * 100
+        after_pct = (timing['after_hours'] / total_merges) * 100
+        weekend_pct = (timing['weekends'] / total_merges) * 100
+        
+        console.print(f"│ Business Hours          │ {timing['business_hours']:>4d} ({business_pct:>3.0f}%) │")
+        console.print(f"│ After Hours             │ {timing['after_hours']:>4d} ({after_pct:>3.0f}%) │")
+        console.print(f"│ Weekends                │ {timing['weekends']:>4d} ({weekend_pct:>3.0f}%) │")
+    else:
+        console.print("│ Business Hours          │     0  │")
+        console.print("│ After Hours             │     0  │")
+        console.print("│ Weekends                │     0  │")
     
-    console.print(summary_table)
+    console.print("└───────────────────────┴─────────┘")
 
-def get_review_metrics(pull_requests):
-    """Extract review metrics from pull requests"""
-    review_metrics = {
-        'reviewers_per_pr': {},
-        'review_comments_per_pr': {},
-        'average_review_time': {}
+def calculate_review_metrics(metrics):
+    """Calculate summary review metrics."""
+    review_metrics = metrics['review_metrics']
+    
+    # Calculate average review cycles
+    review_cycles = review_metrics.get('review_cycles', [])
+    avg_review_cycles = (
+        statistics.mean(review_cycles)
+        if review_cycles else 0
+    )
+    
+    logging.info(f"Review Cycles - Count: {len(review_cycles)}, Avg: {avg_review_cycles:.1f}")
+    
+    return {
+        'review_cycles': avg_review_cycles,
+        'total_prs_with_reviews': len(review_cycles),
+        'blocking_reviews': review_metrics['blocking_reviews']
     }
+
+def calculate_collaboration_metrics(metrics):
+    """Calculate collaboration metrics including average comments."""
+    collab_metrics = metrics['collaboration']
     
-    for pr in pull_requests:
-        # Get reviews
-        reviews = pr.get_reviews()
-        for review in reviews:
-            reviewer = review.user.login
-            
-            # Count reviews per reviewer
-            if reviewer not in review_metrics['reviewers_per_pr']:
-                review_metrics['reviewers_per_pr'][reviewer] = []
-            review_metrics['reviewers_per_pr'][reviewer].append(pr.number)
-            
-            # Count review comments
-            if reviewer not in review_metrics['review_comments_per_pr']:
-                review_metrics['review_comments_per_pr'][reviewer] = []
-            review_metrics['review_comments_per_pr'][reviewer].extend(review.get_comments())
-            
-            # Calculate review time
-            if reviewer not in review_metrics['average_review_time']:
-                review_metrics['average_review_time'][reviewer] = []
-            if pr.created_at and review.submitted_at:
-                review_time = (review.submitted_at - pr.created_at).total_seconds() / 3600  # hours
-                review_metrics['average_review_time'][reviewer].append(review_time)
+    # Calculate average comments per PR
+    total_comments = sum(collab_metrics['review_comments_per_pr'].values())
+    total_prs = len(collab_metrics['review_comments_per_pr'])
+    avg_comments = total_comments / total_prs if total_prs > 0 else 0
     
-    # Calculate averages
-    for reviewer in review_metrics['average_review_time']:
-        times = review_metrics['average_review_time'][reviewer]
-        if times:
-            review_metrics['average_review_time'][reviewer] = sum(times) / len(times)
+    return {
+        'cross_team_reviews': collab_metrics['cross_team_reviews'],
+        'self_merges': collab_metrics['self_merges'],
+        'avg_comments_per_pr': avg_comments
+    }
+
+def calculate_bottleneck_metrics(metrics):
+    """Calculate summary bottleneck metrics."""
+    bottleneck = metrics['bottleneck_metrics']
     
-    return review_metrics
+    avg_wait_time = (
+        statistics.mean(bottleneck['review_wait_time'])
+        if bottleneck['review_wait_time'] else 0
+    )
+    
+    return {
+        'stale_prs': bottleneck['stale_prs'],
+        'long_running_prs': bottleneck['long_running_prs'],
+        'avg_review_wait': avg_wait_time
+    }
+
+def calculate_summary_metrics(metrics):
+    """Calculate summary metrics including lead time."""
+    try:
+        lead_times = metrics.get('lead_times', [])
+        if lead_times:
+            median_lead_time = statistics.median(lead_times)
+            avg_lead_time = statistics.mean(lead_times)
+            
+            logging.info(f"Lead Times - Count: {len(lead_times)}, Median: {median_lead_time:.1f}h, Avg: {avg_lead_time:.1f}h")
+            
+            return {
+                'median_lead_time': median_lead_time,
+                'avg_lead_time': avg_lead_time,
+                'total_prs_with_lead_time': len(lead_times)
+            }
+    except Exception as e:
+        logging.error(f"Error calculating lead time metrics: {str(e)}")
+        return {'median_lead_time': 0, 'avg_lead_time': 0, 'total_prs_with_lead_time': 0}
 

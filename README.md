@@ -15,6 +15,38 @@ Wellcode is designed to:
 
 By leveraging advanced AI technology, we aim to create a more efficient, productive, and rewarding environment for developers and engineering teams of all sizes.
 
+## Privacy & Security
+
+### Data Processing
+- All metrics are processed locally on your machine
+- No source code is ever accessed or analyzed
+- Only metadata (PR counts, timestamps, etc.) is collected
+- No code content or sensitive data is stored
+
+### AI Integration
+- Only aggregated metrics are sent to Claude AI
+- No source code is ever shared with AI services
+- No personal information is transmitted
+- AI analysis focuses solely on performance patterns and trends
+
+### Data Storage
+- No data is stored on external servers
+- Reports are generated locally
+- All API tokens are stored securely in your local environment
+- No tracking or usage analytics are collected
+
+### Integration Security
+- All API communications use secure HTTPS
+- Read-only access to GitHub repositories
+- Minimal scope API tokens recommended
+- No write permissions required
+
+We take your privacy seriously and ensure that:
+- Your code remains private and secure
+- Only necessary metadata is processed
+- All analysis happens locally
+- No sensitive information leaves your environment
+
 ## Features
 
 ### Data Collection & Analysis
