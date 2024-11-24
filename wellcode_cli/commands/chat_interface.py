@@ -67,7 +67,7 @@ def chat_interface():
                     console.print(f"[dim]Interpreting as: {interpreted_command}[/dim]")
                     
                     if interpreted_command:
-                        execute_command(interpreted_command)
+                        execute_command(command)
                     else:
                         console.print("[yellow]I couldn't understand that request. Try rephrasing or type 'help' for suggestions.[/]")
                         
