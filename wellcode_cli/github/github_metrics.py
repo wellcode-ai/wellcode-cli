@@ -135,6 +135,9 @@ def process_repository(repo, org_metrics: OrganizationMetrics, start_date, end_d
     """Process a single repository's metrics"""
     repo_metrics = org_metrics.get_or_create_repository(repo.name, repo.default_branch)
     
+    # Initialize last_updated to start_date
+    repo_metrics.last_updated = start_date
+    
     pulls = repo.get_pulls(state='all')
     for pr in pulls:
         try:
@@ -142,16 +145,26 @@ def process_repository(repo, org_metrics: OrganizationMetrics, start_date, end_d
             if not (start_date <= pr_created <= end_date):
                 continue
                 
+            # Update repository timestamp with PR creation date
+            if pr_created > repo_metrics.last_updated:
+                repo_metrics.last_updated = pr_created
+            
+            # If PR is merged, also check merge date
+            if pr.merged:
+                merge_date = ensure_datetime(pr.merged_at)
+                if merge_date > repo_metrics.last_updated and merge_date <= end_date:
+                    repo_metrics.last_updated = merge_date
+            
             process_pr(pr, repo_metrics, org_metrics)
         except Exception as e:
             logging.warning(f"Error processing PR {pr.number}: {str(e)}")
             continue
-    
-    # Update repository timestamp after processing
-    repo_metrics.update_timestamp()
 
 def process_pr(pr, repo_metrics: RepositoryMetrics, org_metrics: OrganizationMetrics):
     """Process a single pull request with complete metrics tracking"""
+    pr_timestamp = ensure_datetime(pr.created_at)
+    repo_metrics.update_timestamp(pr_timestamp)
+    
     try:
         # Add PR context
         logging.debug(f"Processing PR #{pr.number} - '{pr.title}' by {pr.user.login if pr.user else 'unknown'}")
@@ -318,6 +331,9 @@ def process_pr(pr, repo_metrics: RepositoryMetrics, org_metrics: OrganizationMet
                 reviewer_team = org_metrics.users[review.user.login].team
                 if reviewer_team:
                     repo_metrics.teams_involved.add(reviewer_team)
+        
+        merge_timestamp = ensure_datetime(pr.merged_at)
+        repo_metrics.update_timestamp(merge_timestamp)
         
     except Exception as e:
         logging.error(f"Error processing PR {pr.number}: {str(e)}", exc_info=True)

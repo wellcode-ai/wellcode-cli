@@ -8,7 +8,8 @@ from anthropic import InternalServerError, APIError, RateLimitError
 from ..github.github_metrics import get_github_metrics
 from ..github.github_display import display_github_metrics
 from ..github.github_format_ai import format_ai_response, get_ai_analysis
-from ..linear_metrics import get_linear_metrics, display_linear_metrics
+from ..linear.linear_metrics import get_linear_metrics
+from ..linear.linear_display import display_linear_metrics
 from ..split_metrics import get_split_metrics, display_split_metrics
 from ..utils import save_analysis_data
 from .config import load_config,config
@@ -94,8 +95,7 @@ def review(start_date, end_date, user, team):
         if config_data.get('ANTHROPIC_API_KEY'):
             try:
                 status.update("Generating AI analysis...")
-                analysis_result = get_ai_analysis(all_metrics)
-                console.print("\n[bold cyan]AI Analysis:[/]")
+                analysis_result = get_ai_analysis(all_metrics)                
                 format_ai_response(analysis_result)
             except InternalServerError as e:
                 if "overloaded_error" in str(e):

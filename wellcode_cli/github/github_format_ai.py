@@ -26,8 +26,6 @@ def format_ai_response(response):
     if not sections:
         sections = [('general', para.strip()) for para in analysis_content.split('\n') if para.strip()]
 
-    # Create a panel for the entire analysis
-    console.print("\n[bold green]AI Analysis[/]")
 
     for section, content in sections:
         # Convert section name to title case and replace underscores with spaces
@@ -85,7 +83,6 @@ def get_ai_analysis(all_metrics):
         # GitHub metrics
         if 'github' in all_metrics:
             github_data = all_metrics['github']
-            print("GitHub data type:", type(github_data))
             metrics_json = json.dumps(github_data, cls=MetricsJSONEncoder, indent=2, default=str)
             metrics_summary = {'github': json.loads(metrics_json)}
 

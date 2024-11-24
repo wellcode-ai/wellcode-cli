@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Optional
 from collections import defaultdict
 from datetime import datetime, timezone
 import statistics
@@ -303,17 +303,17 @@ class UserMetrics(BaseMetrics):
 class RepositoryMetrics(BaseMetrics):
     name: str
     default_branch: str = "main"
-    prs_created: int = 0
-    prs_merged: int = 0
-    prs_merged_to_main: int = 0
-    review_metrics: ReviewMetrics = field(default_factory=ReviewMetrics)
     code_metrics: CodeMetrics = field(default_factory=CodeMetrics)
+    review_metrics: ReviewMetrics = field(default_factory=ReviewMetrics)
     time_metrics: TimeMetrics = field(default_factory=TimeMetrics)
     collaboration_metrics: CollaborationMetrics = field(default_factory=CollaborationMetrics)
     bottleneck_metrics: BottleneckMetrics = field(default_factory=BottleneckMetrics)
     contributors: Set[str] = field(default_factory=set)
     teams_involved: Set[str] = field(default_factory=set)
-    last_updated: datetime = field(default_factory=datetime.now)
+    prs_created: int = 0
+    prs_merged: int = 0
+    prs_merged_to_main: int = 0
+    last_updated: Optional[datetime] = None
 
     def update_teams(self, author_team: str, reviewer_team: str):
         if author_team:
@@ -321,8 +321,13 @@ class RepositoryMetrics(BaseMetrics):
         if reviewer_team:
             self.teams_involved.add(reviewer_team)
     
-    def update_timestamp(self):
-        self.last_updated = datetime.now(timezone.utc)
+    def update_timestamp(self, timestamp: Optional[datetime] = None):
+        """Update the last activity timestamp"""
+        if timestamp is None:
+            timestamp = datetime.now(timezone.utc)
+        
+        if self.last_updated is None or timestamp > self.last_updated:
+            self.last_updated = timestamp
 
 @dataclass
 class OrganizationMetrics(BaseMetrics):
