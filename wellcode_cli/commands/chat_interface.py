@@ -90,35 +90,49 @@ def execute_command(command_str: str) -> bool:
         if command_type == CommandType.REVIEW:
             # Parse dates and user from the command string
             date_args = {}
-            for arg in args:
-                if '=' in arg:
-                    key, value = arg.split('=', 1)
-                    date_args[key] = value
+            console.print(f"Args: {args}")
             
-            # Parse dates exactly as provided by Claude
-            if '--start-date' in date_args and '--end-date' in date_args:
-                start_date = datetime.strptime(date_args['--start-date'], '%Y-%m-%d')
-                end_date = datetime.strptime(date_args['--end-date'], '%Y-%m-%d')
-                
-                # Ensure end date includes the full day
-                end_date = end_date.replace(hour=23, minute=59, second=59)
-                # Ensure start date starts at beginning of day
-                start_date = start_date.replace(hour=0, minute=0, second=0)
-            else:
-                # Default to last 7 days if no dates provided
-                end_date = datetime.now()
-                start_date = end_date - timedelta(days=7)
+            # Parse args list properly
+            for i in range(0, len(args) - 1, 2):
+                key = args[i].strip('--')  # Remove '--' from key
+                value = args[i + 1]
+                date_args[key] = value
+            console.print(f"Date args: {date_args}")
+            # Initialize dates
+            now = datetime.now()
+            if 'start-date' in date_args and 'end-date' in date_args:
+                start_date = datetime.strptime(date_args['start-date'], '%Y-%m-%d')
+                end_date = datetime.strptime(date_args['end-date'], '%Y-%m-%d')
+            elif time_range == 'last_month':
+                # Calculate last month's dates
+                if now.month == 1:
+                    start_date = datetime(now.year - 1, 12, 1)
+                    end_date = datetime(now.year - 1, 12, 31)
+                else:
+                    start_date = datetime(now.year, now.month - 1, 1)
+                    end_date = (datetime(now.year, now.month, 1) - timedelta(days=1))
             
-            user = next((args[i+1] for i, arg in enumerate(args) if arg in ['--user', '-u']), None)
+            # Ensure proper time boundaries
+            end_date = end_date.replace(hour=23, minute=59, second=59)
+            start_date = start_date.replace(hour=0, minute=0, second=0)
             
-            ctx.invoke(review, start_date=start_date, end_date=end_date, user=user, team=None)
+            # Get team from args
+            team = next((args[i+1] for i, arg in enumerate(args) if arg in ['--team', '-t']), None)
+            
+            ctx.invoke(review, start_date=start_date, end_date=end_date, user=None, team=team)
         elif command_type == CommandType.CONFIG:
             ctx.invoke(config)
         elif command_type == CommandType.HELP:
             show_help()
         elif command_type == CommandType.CHAT:
-            ctx.invoke(chat, initial_question=args[0] if args else None)
-            return False  # Return to main prompt after chat completes
+            initial_question = args[0] if args else None
+            console.print(f"Initial question: {initial_question}")
+            if not initial_question or initial_question.lower() == 'chat':  # If no question, enter interactive mode
+                ctx.invoke(chat)
+                return True  # Continue the main loop after chat exits
+            else:  # If there's a question, process it and return
+                ctx.invoke(chat, initial_question=initial_question)
+                return False  # Return to main prompt
         elif command_type == CommandType.REPORT:
             ctx.invoke(report)
         else:
