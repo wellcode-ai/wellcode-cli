@@ -4,7 +4,6 @@ from .. import __version__
 from rich.console import Console
 from rich.panel import Panel
 from pathlib import Path
-from anthropic import InternalServerError, APIError, RateLimitError
 from ..github.github_metrics import get_github_metrics
 from ..github.github_display import display_github_metrics
 from ..github.github_format_ai import format_ai_response, get_ai_analysis
@@ -12,7 +11,8 @@ from ..linear.linear_metrics import get_linear_metrics
 from ..linear.linear_display import display_linear_metrics
 from ..split_metrics import get_split_metrics, display_split_metrics
 from ..utils import save_analysis_data
-from .config import load_config,config
+from ..config import load_config,config
+from anthropic import InternalServerError, APIError, RateLimitError
 
 console = Console()
 CONFIG_FILE = Path.home() / '.wellcode' / 'config.json'
