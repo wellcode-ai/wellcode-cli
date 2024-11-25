@@ -1,7 +1,8 @@
 import rich_click as click
 from rich.console import Console
 from rich.prompt import Prompt
-from .config import load_config,config
+from ..utils import load_config
+from .config import config
 from .. import __version__
 import anthropic
 from rich.panel import Panel

@@ -4,7 +4,7 @@ from ..utils import  get_latest_analysis
 import rich_click as click
 
 import anthropic
-from .config import load_config
+from ..utils import load_config
 from rich.prompt import Prompt
 console = Console()
 from .review import review

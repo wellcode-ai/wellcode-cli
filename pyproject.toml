@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wellcode-cli"
-version = "0.1.27"
+version = "0.1.29"
 description = "Engineering Metrics Analysis Tool"
 readme = "README.md"
 authors = [{ name = "Your Name", email = "your.email@example.com" }]

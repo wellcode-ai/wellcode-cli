@@ -4,10 +4,15 @@ import tempfile
 import os
 import pandas as pd
 from collections import defaultdict
-
+from pathlib import Path
 from rich.console import Console
 
 console = Console()
+
+# Define config file location
+CONFIG_DIR = Path.home() / '.wellcode'
+CONFIG_FILE = CONFIG_DIR / 'config.json'
+
 
 class WellcodeJSONEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -102,3 +107,26 @@ def get_latest_analysis():
     except Exception as e:
         console.print(f"[red]Error accessing analysis data: {str(e)}[/]")
         return None
+
+def load_config() -> dict:
+    """Load configuration from the config file"""
+    config_data = {}
+    
+    # Check if config file exists
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE) as f:
+                config_data = json.load(f)
+        except json.JSONDecodeError:
+            console.print("[red]Error: Configuration file is corrupted[/]")
+        except Exception as e:
+            console.print(f"[red]Error loading configuration: {str(e)}[/]")
+    
+    # Validate required fields
+    required_fields = ['GITHUB_TOKEN', 'GITHUB_ORG']
+    missing_fields = [field for field in required_fields if not config_data.get(field)]
+    
+    if missing_fields:
+        console.print(f"[yellow]Warning: Missing required configuration: {', '.join(missing_fields)}[/]")
+    
+    return config_data

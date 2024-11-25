@@ -11,9 +11,9 @@ from ..linear.linear_metrics import get_linear_metrics
 from ..linear.linear_display import display_linear_metrics
 from ..split_metrics import get_split_metrics, display_split_metrics
 from ..utils import save_analysis_data
-from ..config import load_config,config
+from .config import config
+from ..utils import load_config
 from anthropic import InternalServerError, APIError, RateLimitError
-
 console = Console()
 CONFIG_FILE = Path.home() / '.wellcode' / 'config.json'
 
