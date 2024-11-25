@@ -1,3 +1,5 @@
 include README.md
 include LICENSE
-include wellcode_cli/__init__.py
+include src/wellcode_cli/__init__.py
+include src/wellcode_cli/config.py
+recursive-include src/wellcode_cli *.py

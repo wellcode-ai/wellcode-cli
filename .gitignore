@@ -3,8 +3,9 @@ reports
 wellcode_cli/__pycache__
 dist
 venv
-config.py
 wellcode_cli.egg-info
 wellcode_cli/github/__pycache__
 wellcode_cli/commands/__pycache__
 wellcode_cli/linear/__pycache__
+**/__pycache__
+**/__pycache__

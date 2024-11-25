@@ -105,13 +105,12 @@ We take your privacy seriously and ensure that:
 
 ## Installation
 
-### Using Homebrew
+### Using Pip
 
-The easiest way to install wellcode-cli is using Homebrew:
+The easiest way to install wellcode-cli is using pip:
 
 ```
-brew tap wellcode-ai/wellcode-cli
-brew install wellcode-cli
+pip install wellcode-cli
 ```
 
 ### Manual Installation
