@@ -4,7 +4,7 @@ from ..utils import  get_latest_analysis
 import rich_click as click
 
 import anthropic
-from ..utils import load_config
+from ..config import get_anthropic_api_key
 from rich.prompt import Prompt
 console = Console()
 from .review import review
@@ -23,12 +23,11 @@ def chat(initial_question=None):
         data = get_latest_analysis()
     
     # Load configuration
-    config_data = load_config()
-    if not config_data.get('ANTHROPIC_API_KEY'):
+    if not get_anthropic_api_key():
         console.print("[red]Error: Anthropic API key not configured. Please run 'wellcode-cli config'[/]")
         return
 
-    client = anthropic.Client(api_key=config_data['ANTHROPIC_API_KEY'])
+    client = anthropic.Client(api_key=get_anthropic_api_key())
     
     console.print("[bold blue]Wellcode AI Chat[/]")
     console.print("Ask questions about your engineering metrics. Type 'exit' to quit.\n")

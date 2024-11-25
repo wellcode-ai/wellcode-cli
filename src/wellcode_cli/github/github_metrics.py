@@ -7,14 +7,13 @@ import statistics
 from .models.metrics import (
     OrganizationMetrics, RepositoryMetrics
 )
-from ..config import GITHUB_TOKEN
 from .utils import ensure_datetime
-
+from ..config import get_github_token
 console = Console()
 
 def get_github_metrics(org_name: str, start_date, end_date, user_filter=None, team_filter=None) -> OrganizationMetrics:
     """Main function to get GitHub metrics for an organization"""
-    g = Github(GITHUB_TOKEN)
+    g = Github(get_github_token())
     org = g.get_organization(org_name)
     
     # Ensure start_date and end_date are timezone-aware

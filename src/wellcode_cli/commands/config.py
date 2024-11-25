@@ -4,7 +4,7 @@ import rich_click as click
 from rich.console import Console
 from rich.prompt import Prompt, Confirm
 from rich.panel import Panel
-
+from ..config import get_github_token, get_github_org, get_linear_api_key, get_split_api_key, get_anthropic_api_key
 console = Console()
 CONFIG_FILE = Path.home() / '.wellcode' / 'config.json'
 
@@ -29,12 +29,12 @@ def config():
     console.print("\n[bold blue]GitHub Configuration[/] (required)")
     config_data['GITHUB_TOKEN'] = Prompt.ask(
         "Enter your GitHub token",
-        default=config_data.get('GITHUB_TOKEN', ''),
+        default=get_github_token(),
         password=True
     )
     config_data['GITHUB_ORG'] = Prompt.ask(
         "Enter your GitHub organization",
-        default=config_data.get('GITHUB_ORG', '')
+        default=get_github_org()
     )
 
     # Linear configuration
@@ -43,7 +43,7 @@ def config():
                    default=bool(config_data.get('LINEAR_API_KEY'))):
         config_data['LINEAR_API_KEY'] = Prompt.ask(
             "Enter your Linear API key",
-            default=config_data.get('LINEAR_API_KEY', ''),
+            default=get_linear_api_key(),
             password=True
         )
         console.print("[green]✓ Linear integration enabled[/]")
@@ -58,7 +58,7 @@ def config():
                    default=bool(config_data.get('SPLIT_API_KEY'))):
         config_data['SPLIT_API_KEY'] = Prompt.ask(
             "Enter your Split.io API key",
-            default=config_data.get('SPLIT_API_KEY', ''),
+            default=get_split_api_key(),
             password=True
         )
         console.print("[green]✓ Split.io integration enabled[/]")
@@ -73,7 +73,7 @@ def config():
                    default=bool(config_data.get('ANTHROPIC_API_KEY'))):
         config_data['ANTHROPIC_API_KEY'] = Prompt.ask(
             "Enter your Anthropic API key",
-            default=config_data.get('ANTHROPIC_API_KEY', ''),
+            default=get_anthropic_api_key(),
             password=True
         )
         console.print("[green]✓ AI-powered insights enabled[/]")

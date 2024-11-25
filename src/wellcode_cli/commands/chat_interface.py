@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from .review import review
 from .report import report
 from .chat import chat
-
+from ..config import get_anthropic_api_key
 console = Console()
 CONFIG_FILE = Path.home() / '.wellcode' / 'config.json'
 
@@ -36,8 +36,8 @@ def chat_interface():
     
     # Initialize Anthropic client if configured
     client = None
-    if config_data.get('ANTHROPIC_API_KEY'):
-        client = anthropic.Client(api_key=config_data['ANTHROPIC_API_KEY'])
+    if get_anthropic_api_key():
+        client = anthropic.Client(api_key=get_anthropic_api_key())
     
     while True:
         try:

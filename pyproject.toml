@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wellcode-cli"
-version = "0.1.29"
+version = "0.1.31"
 description = "Engineering Metrics Analysis Tool"
 readme = "README.md"
 authors = [{ name = "Your Name", email = "your.email@example.com" }]
@@ -21,6 +21,15 @@ dependencies = [
     "chardet>=5.2.0",
     "idna>=3.6",
     "certifi>=2023.7.22",
+    "rich>=13.0.0",
+    "rich-click>=1.6.0",
+    "anthropic>=0.18.0",
+    "python-dateutil>=2.8.2",
+    "splitio-client>=9.2.0",
+    "pandas>=2.0.0",
+    "plotly>=5.18.0",
+    "python-dotenv>=1.0.0",
+    "click>=8.0.0"
 ]
 requires-python = ">=3.8"
 

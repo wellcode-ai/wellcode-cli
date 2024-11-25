@@ -14,13 +14,9 @@ from splitio import get_factory
 from splitio.exceptions import TimeoutException
 from datetime import datetime, date, timedelta
 from rich.console import Console
-
+from .config import get_split_api_key
 console = Console()
 
-try:
-    from .config import SPLIT_API_KEY
-except ImportError:
-    raise ImportError("Failed to import configuration. Ensure config.py exists and is properly set up.")
 
 def get_split_metrics(start_date: date, end_date: date):
     """Get Split.io metrics for the specified date range"""
@@ -34,7 +30,7 @@ def get_split_metrics(start_date: date, end_date: date):
 
     try:
         # Initialize with environment variable
-        if not SPLIT_API_KEY:
+        if not get_split_api_key():
             return {
                 'total_splits': 0,
                 'active_splits': 0,
@@ -47,7 +43,7 @@ def get_split_metrics(start_date: date, end_date: date):
                 'errors': ['SPLIT_API_KEY not set in environment']
             }
 
-        factory = get_factory(SPLIT_API_KEY, config={'impressionsMode': 'optimized'})
+        factory = get_factory(get_split_api_key(), config={'impressionsMode': 'optimized'})
         client = factory.client()
         split_manager = factory.manager()
 

@@ -12,6 +12,7 @@ from ..linear.linear_display import display_linear_metrics
 from ..split_metrics import get_split_metrics, display_split_metrics
 from ..utils import save_analysis_data
 from .config import config
+from ..config import get_github_token, get_github_org, get_linear_api_key, get_split_api_key, get_anthropic_api_key
 from ..utils import load_config
 from anthropic import InternalServerError, APIError, RateLimitError
 console = Console()
@@ -65,16 +66,16 @@ def review(start_date, end_date, user, team):
 
     with console.status("[bold green]Fetching metrics...") as status:
         # GitHub metrics
-        if config_data.get('GITHUB_TOKEN'):
+        if get_github_token():
             status.update("Fetching GitHub metrics...")
-            metrics = get_github_metrics(config_data['GITHUB_ORG'], start_date, end_date, user, team)
+            metrics = get_github_metrics(get_github_org(), start_date, end_date, user, team)
             all_metrics['github'] = metrics
             display_github_metrics(metrics)
         else:
             console.print("[yellow]⚠️  GitHub integration not configured[/]")
 
         # Linear metrics
-        if config_data.get('LINEAR_API_KEY'):
+        if get_linear_api_key():
             status.update("Fetching Linear metrics...")
             linear_metrics = get_linear_metrics(start_date, end_date, user)
             all_metrics['linear'] = linear_metrics
@@ -83,7 +84,7 @@ def review(start_date, end_date, user, team):
             console.print("[yellow]⚠️  Linear integration not configured[/]")
 
         # Split metrics
-        if config_data.get('SPLIT_API_KEY'):
+        if get_split_api_key():
             status.update("Fetching Split metrics...")
             split_metrics = get_split_metrics(start_date, end_date)
             all_metrics['split'] = split_metrics
@@ -92,7 +93,7 @@ def review(start_date, end_date, user, team):
             console.print("[yellow]⚠️  Split.io integration not configured[/]")
 
         # AI Analysis
-        if config_data.get('ANTHROPIC_API_KEY'):
+        if get_anthropic_api_key():
             try:
                 status.update("Generating AI analysis...")
                 analysis_result = get_ai_analysis(all_metrics)                

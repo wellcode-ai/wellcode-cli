@@ -4,19 +4,14 @@ from rich.console import Console
 from dateutil import parser
 from dateutil import tz
 from .models.metrics import LinearOrgMetrics, TeamMetrics, ProjectMetrics
+from ..config import get_linear_api_key
 console = Console()
-
-# Import configuration
-try:
-    from ..config import LINEAR_API_KEY
-except ImportError:
-    raise ImportError("Failed to import configuration. Ensure config.py exists and is properly set up.")
 
 LINEAR_API_ENDPOINT = "https://api.linear.app/graphql"
 
 def get_linear_metrics(start_date, end_date, user_filter=None) -> LinearOrgMetrics:
     headers = {
-        "Authorization": LINEAR_API_KEY,
+        "Authorization": get_linear_api_key(),
         "Content-Type": "application/json"
     }
 

@@ -5,14 +5,10 @@ from rich.markdown import Markdown
 from anthropic import Anthropic
 from .models.metrics import MetricsJSONEncoder
 import json
-try:
-    from ..config import ANTHROPIC_API_KEY 
-except ImportError: 
-    raise ImportError("Failed to import configuration. Ensure config.py exists and is properly set up.")
-
+from ..config import get_anthropic_api_key
 client = Anthropic(
     # This is the default and can be omitted
-    api_key=ANTHROPIC_API_KEY,
+    api_key=get_anthropic_api_key(),
 )
 console = Console()
 

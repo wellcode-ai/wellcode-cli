@@ -1,30 +1,41 @@
-import os
 from pathlib import Path
 import json
-from dotenv import load_dotenv
+import os
+from typing import Optional
+from rich.console import Console
 
-# Load environment variables from .env file
-load_dotenv()
+console = Console()
 
-# Define config file location
 CONFIG_DIR = Path.home() / '.wellcode'
 CONFIG_FILE = CONFIG_DIR / 'config.json'
 
-# Load configuration from file
-config_data = {}
-if CONFIG_FILE.exists():
-    with open(CONFIG_FILE) as f:
-        config_data = json.load(f)
+def get_config_value(key: str) -> Optional[str]:
+    """Get configuration value with fallback to environment variables"""
+    # First try to load from config file
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE) as f:
+                config_data = json.load(f)
+                if key in config_data and config_data[key]:
+                    return config_data[key]
+        except Exception as e:
+            console.print(f"[yellow]Warning: Error reading config file: {e}[/]")
+    
+    # Fallback to environment variable
+    return os.getenv(key)
 
-# GitHub configuration
-GITHUB_ORG = config_data.get('GITHUB_ORG') or os.getenv('GITHUB_ORG')
-GITHUB_TOKEN = config_data.get('GITHUB_TOKEN') or os.getenv('GITHUB_TOKEN')
+# Export commonly used config values
+def get_github_token() -> Optional[str]:
+    return get_config_value('GITHUB_TOKEN')
 
-# Linear configuration
-LINEAR_API_KEY = config_data.get('LINEAR_API_KEY') or os.getenv('LINEAR_API_KEY')
+def get_github_org() -> Optional[str]:
+    return get_config_value('GITHUB_ORG')
 
-# Anthropic configuration
-ANTHROPIC_API_KEY = config_data.get('ANTHROPIC_API_KEY') or os.getenv('ANTHROPIC_API_KEY')
+def get_linear_api_key() -> Optional[str]:
+    return get_config_value('LINEAR_API_KEY')
 
-# Split.io configuration
-SPLIT_API_KEY = config_data.get('SPLIT_API_KEY') or os.getenv('SPLIT_API_KEY')
+def get_anthropic_api_key() -> Optional[str]:
+    return get_config_value('ANTHROPIC_API_KEY')
+
+def get_split_api_key() -> Optional[str]:
+    return get_config_value('SPLIT_API_KEY')
