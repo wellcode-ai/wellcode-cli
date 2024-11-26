@@ -343,6 +343,9 @@ class OrganizationMetrics(BaseMetrics):
     time_metrics: TimeMetrics = field(default_factory=TimeMetrics)
     collaboration_metrics: CollaborationMetrics = field(default_factory=CollaborationMetrics)
     bottleneck_metrics: BottleneckMetrics = field(default_factory=BottleneckMetrics)
+    prs_created: int = 0
+    prs_merged: int = 0
+    prs_merged_to_main: int = 0
 
     def get_or_create_repository(self, name: str, default_branch: str = "main") -> RepositoryMetrics:
         if name not in self.repositories:

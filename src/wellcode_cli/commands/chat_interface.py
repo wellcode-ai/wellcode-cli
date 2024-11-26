@@ -68,7 +68,7 @@ def chat_interface():
                     console.print(f"[dim]Interpreting as: {interpreted_command}[/dim]")
                     
                     if interpreted_command:
-                        execute_command(command)
+                        execute_command(interpreted_command)
                     else:
                         console.print("[yellow]I couldn't understand that request. Try rephrasing or type 'help' for suggestions.[/]")
                         
@@ -89,48 +89,45 @@ def execute_command(command_str: str) -> bool:
         ctx = click.get_current_context()
         
         if command_type == CommandType.REVIEW:
-            # Clean up the command string and split properly
-            args = command_str.strip('"\'').split()
+            
+            parts = command_str.split()
+            
             date_args = {}
             
-            # Parse args list properly
-            i = 0
-            while i < len(args):
-                if args[i].startswith('--'):
-                    key = args[i].strip('--')
-                    if i + 1 < len(args):
-                        value = args[i + 1]
-                        date_args[key] = value
-                        i += 2
-                    else:
-                        i += 1
-                else:
-                    i += 1
-
+            # Parse the command parts directly
+            for i in range(len(parts)):
+                if parts[i] == '--start-date' and i + 1 < len(parts):
+                    date_args['start-date'] = parts[i + 1]
+                elif parts[i] == '--end-date' and i + 1 < len(parts):
+                    date_args['end-date'] = parts[i + 1]
+                elif parts[i] == '--team' and i + 1 < len(parts):
+                    date_args['team'] = parts[i + 1]
+                elif parts[i] == '--user' and i + 1 < len(parts):
+                    date_args['user'] = parts[i + 1]
+            
+            
             # Initialize dates
             now = datetime.now()
             
-            try:
-                if 'start-date' in date_args and 'end-date' in date_args:
-                    start_date = datetime.strptime(date_args['start-date'], '%Y-%m-%d')
-                    end_date = datetime.strptime(date_args['end-date'], '%Y-%m-%d')
-                else:
-                    # Default to last 7 days
-                    end_date = now
-                    start_date = end_date - timedelta(days=7)
+            if 'start-date' in date_args and 'end-date' in date_args:
+                start_date = datetime.strptime(date_args['start-date'], '%Y-%m-%d')
+                end_date = datetime.strptime(date_args['end-date'], '%Y-%m-%d')
+            else:
+                # Default to last 7 days
+                end_date = now
+                start_date = end_date - timedelta(days=7)
 
-                # Ensure proper time boundaries
-                end_date = end_date.replace(hour=23, minute=59, second=59)
-                start_date = start_date.replace(hour=0, minute=0, second=0)
+            # Ensure proper time boundaries
+            end_date = end_date.replace(hour=23, minute=59, second=59)
+            start_date = start_date.replace(hour=0, minute=0, second=0)
 
-                # Get team from args
-                team = date_args.get('team')
-                
-                ctx.invoke(review, start_date=start_date, end_date=end_date, team=team)
-                
-            except Exception as e:
-                console.print(f"[red]Error processing dates: {e}[/]")
-                return False
+            # Get team from args
+            team = date_args.get('team')
+
+            # get user from args
+            user = date_args.get('user')
+            
+            ctx.invoke(review, start_date=start_date, end_date=end_date, team=team, user=user)
         elif command_type == CommandType.CONFIG:
             ctx.invoke(config)
         elif command_type == CommandType.HELP:

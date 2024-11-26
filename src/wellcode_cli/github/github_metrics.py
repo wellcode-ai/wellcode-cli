@@ -149,11 +149,17 @@ def process_repository_batch(repo, org_metrics, start_date, end_date, user_filte
         repo_metrics = org_metrics.get_or_create_repository(repo.name)
         repo_metrics.default_branch = repo.default_branch
         
-        # Track PR counts
+        # Track PR counts for both repo and org
         repo_metrics.prs_created += len(relevant_pulls)
+        org_metrics.prs_created += len(relevant_pulls)
+        
         merged_prs = [pr for pr in relevant_pulls if pr.merged]
         repo_metrics.prs_merged += len(merged_prs)
-        repo_metrics.prs_merged_to_main += sum(1 for pr in merged_prs if pr.base.ref == repo_metrics.default_branch)
+        org_metrics.prs_merged += len(merged_prs)
+        
+        merged_to_main = sum(1 for pr in merged_prs if pr.base.ref == repo_metrics.default_branch)
+        repo_metrics.prs_merged_to_main += merged_to_main
+        org_metrics.prs_merged_to_main += merged_to_main
         
         # Add contributor tracking
         for pr in relevant_pulls:
@@ -200,7 +206,6 @@ def process_pr(pr, repo_metrics, org_metrics, start_date, end_date):
                                repo_metrics, org_metrics)
         ]
         
-        # Wait for all updates to complete
         for future in as_completed(futures):
             future.result()
             
@@ -279,28 +284,56 @@ def update_review_metrics(pr, pr_data, repo_metrics, org_metrics):
 
 def update_time_metrics(pr, commits, repo_metrics, org_metrics, start_date, end_date):
     """Update time metrics for a PR"""
-    if pr.merged_at:
-        merge_time = ensure_datetime(pr.merged_at)
-        
-        # Update merge distribution
-        if merge_time.weekday() >= 5:  # Weekend
-            repo_metrics.time_metrics.merge_distribution['weekends'] += 1
-            org_metrics.time_metrics.merge_distribution['weekends'] += 1
-        elif 9 <= merge_time.hour < 17:  # Business hours (simplified)
-            repo_metrics.time_metrics.merge_distribution['business_hours'] += 1
-            org_metrics.time_metrics.merge_distribution['business_hours'] += 1
-        else:  # After hours
-            repo_metrics.time_metrics.merge_distribution['after_hours'] += 1
-            org_metrics.time_metrics.merge_distribution['after_hours'] += 1
+    try:
+        if pr.merged_at:
+            # Convert all times to datetime with timezone
+            merge_time = ensure_datetime(pr.merged_at)
+            created_time = ensure_datetime(pr.created_at)
             
-        # Calculate deployment frequency (merges per day to main branch)
-        if pr.base.ref == repo_metrics.default_branch:
-            one_day_seconds = 24 * 60 * 60
-            days_in_period = (end_date - start_date).total_seconds() / one_day_seconds
-            repo_metrics.time_metrics.deployment_frequency = repo_metrics.prs_merged_to_main / days_in_period
-            org_metrics.time_metrics.deployment_frequency = org_metrics.prs_merged_to_main / days_in_period
-
-    # ... rest of existing update_time_metrics code ...
+            # Calculate time to merge in hours
+            merge_duration = (merge_time - created_time).total_seconds() / 3600
+            repo_metrics.time_metrics.time_to_merge.append(merge_duration)
+            org_metrics.time_metrics.time_to_merge.append(merge_duration)
+            
+            # Calculate lead time if we have commits
+            if commits and len(commits) > 0:
+                first_commit = min(commits, key=lambda c: ensure_datetime(c.commit.author.date))
+                first_commit_date = ensure_datetime(first_commit.commit.author.date)
+                lead_time = (merge_time - first_commit_date).total_seconds() / 3600
+                repo_metrics.time_metrics.lead_times.append(lead_time)
+                org_metrics.time_metrics.lead_times.append(lead_time)
+                
+                # Calculate cycle time
+                cycle_time = (merge_time - first_commit_date).total_seconds() / 3600
+                repo_metrics.time_metrics.cycle_time.append(cycle_time)
+                org_metrics.time_metrics.cycle_time.append(cycle_time)
+            
+            # Update merge distribution
+            if merge_time.weekday() >= 5:  # Weekend
+                repo_metrics.time_metrics.merge_distribution['weekends'] += 1
+                org_metrics.time_metrics.merge_distribution['weekends'] += 1
+            elif 9 <= merge_time.hour < 17:  # Business hours
+                repo_metrics.time_metrics.merge_distribution['business_hours'] += 1
+                org_metrics.time_metrics.merge_distribution['business_hours'] += 1
+            else:  # After hours
+                repo_metrics.time_metrics.merge_distribution['after_hours'] += 1
+                org_metrics.time_metrics.merge_distribution['after_hours'] += 1
+            
+            # Calculate deployment frequency with safety check
+            if pr.base.ref == repo_metrics.default_branch:
+                one_day_seconds = 24 * 60 * 60
+                days_in_period = max((end_date - start_date).total_seconds() / one_day_seconds, 1)  # Ensure minimum 1 day
+                
+                # Add safety checks for division
+                if days_in_period > 0:
+                    if repo_metrics.prs_merged_to_main > 0:
+                        repo_metrics.time_metrics.deployment_frequency = repo_metrics.prs_merged_to_main / days_in_period
+                    if org_metrics.prs_merged_to_main > 0:
+                        org_metrics.time_metrics.deployment_frequency = org_metrics.prs_merged_to_main / days_in_period
+    except Exception as e:
+        print(f"DEBUG: Error in update_time_metrics: {str(e)}")
+        # Continue processing even if there's an error with one PR
+        pass
 
 def process_reviews(pr, reviews, repo_metrics, org_metrics):
     """Process reviews for a PR"""
@@ -323,8 +356,8 @@ def process_reviews(pr, reviews, repo_metrics, org_metrics):
         repo_metrics.review_metrics.update_from_review(review, pr)
         org_metrics.review_metrics.update_from_review(review, pr)
         
-        # Update collaboration metrics
-        update_collaboration_metrics(pr, review, repo_metrics, org_metrics, reviewer_metrics)
+        # Fix: Remove reviewer_metrics from this call
+        update_collaboration_metrics(pr, reviews, repo_metrics, org_metrics)
 
 def update_collaboration_metrics(pr, reviews, repo_metrics, org_metrics):
     """Update collaboration metrics including participation rate"""
@@ -334,42 +367,46 @@ def update_collaboration_metrics(pr, reviews, repo_metrics, org_metrics):
         org_metrics.collaboration_metrics.self_merges += 1
     
     # Update collaboration metrics at all levels
-    repo_metrics.collaboration_metrics.update_from_reviews(
-        reviews, pr,
-        author_team=pr.user.team,
-        reviewer_team=reviews[0].user.team
-    )
-    org_metrics.collaboration_metrics.update_from_reviews(
-        reviews, pr,
-        author_team=pr.user.team,
-        reviewer_team=reviews[0].user.team
-    )
-    
-    # Update team reviews
-    if reviews[0].user.team and pr.user.team:
-        if reviews[0].user.team == pr.user.team:
-            repo_metrics.collaboration_metrics.team_reviews += 1
-            org_metrics.collaboration_metrics.team_reviews += 1
+    if reviews and len(reviews) > 0 and hasattr(pr.user, 'team') and hasattr(reviews[0].user, 'team'):
+        repo_metrics.collaboration_metrics.update_from_reviews(
+            reviews, pr,
+            author_team=pr.user.team,
+            reviewer_team=reviews[0].user.team
+        )
+        org_metrics.collaboration_metrics.update_from_reviews(
+            reviews, pr,
+            author_team=pr.user.team,
+            reviewer_team=reviews[0].user.team
+        )
+        
+        # Update team reviews
+        if reviews[0].user.team and pr.user.team:
+            if reviews[0].user.team == pr.user.team:
+                repo_metrics.collaboration_metrics.team_reviews += 1
+                org_metrics.collaboration_metrics.team_reviews += 1
+            else:
+                repo_metrics.collaboration_metrics.cross_team_reviews += 1
+                org_metrics.collaboration_metrics.cross_team_reviews += 1
         else:
-            repo_metrics.collaboration_metrics.cross_team_reviews += 1
-            org_metrics.collaboration_metrics.cross_team_reviews += 1
-    else:
-        repo_metrics.collaboration_metrics.external_reviews += 1
-        org_metrics.collaboration_metrics.external_reviews += 1
+            repo_metrics.collaboration_metrics.external_reviews += 1
+            org_metrics.collaboration_metrics.external_reviews += 1
     
-    # Calculate review participation rate
-    total_reviews = repo_metrics.collaboration_metrics.team_reviews + \
-                   repo_metrics.collaboration_metrics.cross_team_reviews + \
-                   repo_metrics.collaboration_metrics.external_reviews
-    total_prs = repo_metrics.prs_merged + repo_metrics.collaboration_metrics.self_merges
+    # Calculate review participation rate for repository
+    repo_total_reviews = (repo_metrics.collaboration_metrics.team_reviews + 
+                         repo_metrics.collaboration_metrics.cross_team_reviews + 
+                         repo_metrics.collaboration_metrics.external_reviews)
     
-    if total_prs > 0:
-        repo_metrics.collaboration_metrics.review_participation_rate = total_reviews / total_prs
-        org_metrics.collaboration_metrics.review_participation_rate = \
-            (org_metrics.collaboration_metrics.team_reviews + \
-             org_metrics.collaboration_metrics.cross_team_reviews + \
-             org_metrics.collaboration_metrics.external_reviews) / \
-            (org_metrics.prs_merged + org_metrics.collaboration_metrics.self_merges)
+    if repo_metrics.prs_created > 0:
+        repo_metrics.collaboration_metrics.review_participation_rate = repo_total_reviews / repo_metrics.prs_created
+    
+    # Calculate review participation rate for organization
+    org_total_reviews = (org_metrics.collaboration_metrics.team_reviews + 
+                        org_metrics.collaboration_metrics.cross_team_reviews + 
+                        org_metrics.collaboration_metrics.external_reviews)
+    
+    # Fix: Use prs_created instead of total_prs
+    if org_metrics.prs_created > 0:  # Changed from total_prs to prs_created
+        org_metrics.collaboration_metrics.review_participation_rate = org_total_reviews / org_metrics.prs_created
 
 def get_team_members(org, team_filter: str) -> set:
     """Get team members for a specific team"""

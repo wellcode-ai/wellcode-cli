@@ -30,11 +30,11 @@ def review(start_date, end_date, user, team):
     if end_date is None:
         end_date = datetime.now()
     
-    # Handle start date
+    # Handle start date - use the passed start_date instead of defaulting to 1 day
     if start_date is None:
-        start_date = end_date - timedelta(days=1)
+        start_date = end_date - timedelta(days=7)  # Changed from 1 to 7 days default
     
-    # Ensure we're working with whole days
+    # Ensure we're working with whole days and use the passed dates
     start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
     end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
     
