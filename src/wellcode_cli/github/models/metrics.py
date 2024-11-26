@@ -289,15 +289,18 @@ class CollaborationMetrics(BaseMetrics):
 @dataclass
 class UserMetrics(BaseMetrics):
     username: str
+    team: str = ""
     prs_created: int = 0
     prs_merged: int = 0
-    review_metrics: ReviewMetrics = field(default_factory=ReviewMetrics)
     code_metrics: CodeMetrics = field(default_factory=CodeMetrics)
+    review_metrics: ReviewMetrics = field(default_factory=ReviewMetrics)
     time_metrics: TimeMetrics = field(default_factory=TimeMetrics)
     collaboration_metrics: CollaborationMetrics = field(default_factory=CollaborationMetrics)
-    bottleneck_metrics: BottleneckMetrics = field(default_factory=BottleneckMetrics)
-    team: str = ""
-    role: str = ""
+
+    @property
+    def login(self):
+        """Compatibility property for login attribute"""
+        return self.username
 
 @dataclass
 class RepositoryMetrics(BaseMetrics):
