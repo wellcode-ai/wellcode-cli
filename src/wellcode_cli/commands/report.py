@@ -501,43 +501,154 @@ def report(output, format):
         raise
 
 def generate_html_content(charts):
-    """Generate HTML content with all charts"""
+    """Generate HTML content with all charts and explanations"""
     html_template = '''
     <!DOCTYPE html>
     <html>
         <head>
-            <title>Engineering Metrics Report</title>
+            <title>Wellcode Engineering Metrics Report</title>
             <style>
                 body {{
                     font-family: Arial, sans-serif;
                     margin: 20px;
                     background-color: #f5f5f5;
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    padding: 20px;
+                }}
+                .header {{
+                    text-align: center;
+                    padding: 40px 0;
+                    background: linear-gradient(135deg, #4F46E5, #7C3AED);
+                    color: white;
+                    border-radius: 8px;
+                    margin-bottom: 40px;
+                }}
+                .header h1 {{
+                    margin: 0;
+                    font-size: 2.5em;
+                }}
+                .header p {{
+                    margin: 10px 0 0;
+                    opacity: 0.9;
                 }}
                 .chart-container {{
                     background-color: white;
-                    padding: 20px;
-                    margin: 20px 0;
+                    padding: 30px;
+                    margin: 30px 0;
                     border-radius: 8px;
                     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                 }}
-                h1 {{
-                    color: #333;
+                .chart-description {{
+                    color: #4B5563;
+                    margin: 20px 0;
+                    line-height: 1.6;
+                }}
+                .section-title {{
+                    color: #1F2937;
+                    margin-top: 40px;
+                    padding-bottom: 10px;
+                    border-bottom: 2px solid #E5E7EB;
+                }}
+                .timestamp {{
                     text-align: center;
+                    color: #6B7280;
+                    margin-top: 40px;
                 }}
             </style>
         </head>
         <body>
-            <h1>Engineering Metrics Report</h1>
+            <div class="header">
+                <h1>Wellcode Engineering Metrics Report</h1>
+                <p>Comprehensive analysis of your engineering team's performance</p>
+            </div>
+            
             <div class="charts">
-                {charts}
+                <h2 class="section-title">Organization Overview</h2>
+                <div class="chart-container">
+                    <div class="chart-description">
+                        This chart provides a high-level view of your organization's GitHub activity, 
+                        showing the total number of repositories, active contributors, and PR metrics.
+                        It helps identify the overall scale of your engineering operations.
+                    </div>
+                    {charts[0]}
+                </div>
+
+                <h2 class="section-title">Time and Efficiency Metrics</h2>
+                <div class="chart-container">
+                    <div class="chart-description">
+                        The Time to Merge distribution shows how quickly PRs move through your review process.
+                        A left-skewed distribution indicates efficient PR processing, while long tails might
+                        suggest bottlenecks in your review process.
+                    </div>
+                    {charts[1]}
+                </div>
+
+                <h2 class="section-title">Team Activity Analysis</h2>
+                <div class="chart-container">
+                    <div class="chart-description">
+                        This visualization breaks down individual contributions across different metrics,
+                        helping identify team members' strengths and participation patterns in the
+                        development process.
+                    </div>
+                    {charts[2]}
+                </div>
+
+                <h2 class="section-title">Repository Performance</h2>
+                <div class="chart-container">
+                    <div class="chart-description">
+                        Compare activity levels across different repositories to understand where most
+                        development is happening and identify potential areas needing more attention
+                        or support.
+                    </div>
+                    {charts[3]}
+                </div>
+
+                <h2 class="section-title">Code Quality Indicators</h2>
+                <div class="chart-container">
+                    <div class="chart-description">
+                        Track key quality metrics including hotfixes, reverts, and blocking reviews.
+                        These indicators help identify potential areas for process improvement and
+                        where additional code review attention might be needed.
+                    </div>
+                    {charts[4]}
+                </div>
+
+                <h2 class="section-title">Review Process Analysis</h2>
+                <div class="chart-container">
+                    <div class="chart-description">
+                        The PR Review Time Distribution shows how long PRs typically wait for review.
+                        This helps identify if your review process is running smoothly or if there are
+                        delays that need addressing.
+                    </div>
+                    {charts[5]}
+                </div>
+
+                <h2 class="section-title">Team Collaboration Patterns</h2>
+                <div class="chart-container">
+                    <div class="chart-description">
+                        Understand how your team collaborates through different types of reviews.
+                        High cross-team review numbers indicate good knowledge sharing, while high
+                        self-merges might suggest areas for process improvement.
+                    </div>
+                    {charts[6]}
+                </div>
+            </div>
+
+            <div class="timestamp">
+                Generated on {timestamp}
             </div>
         </body>
     </html>
     '''
     
-    charts_html = ""
-    for i, chart in enumerate(charts):
-        charts_html += f'<div class="chart-container">{pio.to_html(chart, full_html=False)}</div>'
+    timestamp = datetime.now().strftime('%B %d, %Y at %I:%M %p')
+    charts_html = []
+    for chart in charts:
+        charts_html.append(pio.to_html(chart, full_html=False))
     
-    return html_template.format(charts=charts_html)
+    return html_template.format(
+        charts=charts_html,
+        timestamp=timestamp
+    )
 
