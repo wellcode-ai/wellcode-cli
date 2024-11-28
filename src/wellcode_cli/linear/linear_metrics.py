@@ -84,7 +84,7 @@ def get_linear_metrics(start_date, end_date, user_filter=None) -> LinearOrgMetri
             LINEAR_API_ENDPOINT,
             json={"query": query, "variables": variables},
             headers=headers,
-            timeout=30
+            timeout=30,
         )
         data = response.json()
 
