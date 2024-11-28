@@ -57,7 +57,7 @@ eval (env _WELLCODE_CLI_COMPLETE=fish_source wellcode-cli)
         console.print(
             Panel(
                 f"""[bold green]Shell Completion Script for {shell}[/]
-            
+
 To enable completion, run:
 
 [yellow]wellcode-cli completion {shell} --append[/]

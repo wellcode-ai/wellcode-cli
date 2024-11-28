@@ -644,12 +644,12 @@ def generate_html_content(charts):
                 <h1>Wellcode Engineering Metrics Report</h1>
                 <p>Comprehensive analysis of your engineering team's performance</p>
             </div>
-            
+
             <div class="charts">
                 <h2 class="section-title">Organization Overview</h2>
                 <div class="chart-container">
                     <div class="chart-description">
-                        This chart provides a high-level view of your organization's GitHub activity, 
+                        This chart provides a high-level view of your organization's GitHub activity,
                         showing the total number of repositories, active contributors, and PR metrics.
                         It helps identify the overall scale of your engineering operations.
                     </div>

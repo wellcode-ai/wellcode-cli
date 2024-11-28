@@ -13,43 +13,43 @@ jobs:
       WELLCODE_APP_ID: ${{ secrets.WELLCODE_APP_ID }}
       WELLCODE_CLIENT_ID: ${{ secrets.WELLCODE_CLIENT_ID }}
       ENVIRONMENT: development
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install black ruff mypy pytest pytest-cov
           pip install -e .
-      
+
       - name: Check code formatting with Black
         run: |
           black --check src tests
-      
+
       - name: Lint with Ruff
         run: |
           ruff check src tests
-      
+
       #- name: Type checking with mypy
       #  run: |
       #    mypy src/wellcode_cli
-      
+
       - name: Run tests with pytest
         run: |
           PYTHONPATH=$PYTHONPATH:${{ github.workspace }}/src pytest -v --cov=src/wellcode_cli --cov-report=xml
-      
+
       - name: Build package
         run: |
           pip install build
           python -m build
-      
+
       - name: Check package structure
         run: |
           pip install twine check-wheel-contents
@@ -63,27 +63,27 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.9', '3.10', '3.11', '3.12']
-    
+
     env:
       WELLCODE_APP_ID: ${{ secrets.WELLCODE_APP_ID }}
       WELLCODE_CLIENT_ID: ${{ secrets.WELLCODE_CLIENT_ID }}
       ENVIRONMENT: development
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install black ruff mypy pytest pytest-cov
           pip install -e ".[test]"
-      
+
       - name: Run tests
         run: |
           pytest tests -v
@@ -91,25 +91,25 @@ jobs:
   security:
     needs: quality
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install bandit safety
-      
+
       - name: Run security checks with Bandit
         run: |
           bandit -r src
-      
+
       - name: Check dependencies for known vulnerabilities
         run: |
           safety check

@@ -129,7 +129,7 @@ CRITICAL RULES:
      ✅ "lets check performance of the team plop" → "review --team plop"
    - NEVER add a --team flag unless the input EXPLICITLY contains "team <name>"
    - The word "team" by itself should NEVER result in a --team flag
-   
+
    Examples:
    ❌ "check the team performance" → "review"
    ❌ "let's check the team" → "review"
@@ -284,7 +284,7 @@ def show_help():
     1. Enter your organization name
     2. Install the Wellcode GitHub App
     3. Select repositories to analyze
-    
+
     [bold cyan]Optional Integrations:[/]
     - Linear (for issue tracking)
     - Split.io (for feature flags)
@@ -349,7 +349,7 @@ eval (env _WELLCODE_CLI_COMPLETE=fish_source wellcode-cli)
     console.print(
         Panel(
             f"""[bold green]Shell Completion Script for {shell}[/]
-        
+
 To enable completion, add this to your shell configuration:
 
 [yellow]{completion_scripts[shell]}[/]
