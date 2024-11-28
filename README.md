@@ -5,15 +5,10 @@
 <h1 align="center">Wellcode CLI</h1>
 
 <p align="center">
-  <strong>Engineering Metrics and Insights at Your Fingertips</strong>
+  <strong>Engineering Metrics Powered by AI</strong>
 </p>
-
 <p align="center">
-  <a href="https://pypi.org/project/wellcode-cli/"><img src="https://img.shields.io/pypi/v/wellcode-cli.svg" alt="PyPI version"></a>
-  <a href="https://pypi.org/project/wellcode-cli/"><img src="https://img.shields.io/pypi/pyversions/wellcode-cli.svg" alt="Python versions"></a>
-  <a href="https://github.com/wellcode-ai/wellcode-cli/blob/main/LICENSE"><img src="https://img.shields.io/github/license/wellcode-ai/wellcode-cli.svg" alt="License"></a>
-  <a href="https://github.com/wellcode-ai/wellcode-cli/actions"><img src="https://github.com/wellcode-ai/wellcode-cli/workflows/tests/badge.svg" alt="Tests"></a>
-  <a href="https://codecov.io/gh/wellcode-ai/wellcode-cli"><img src="https://codecov.io/gh/wellcode-ai/wellcode-cli/branch/main/graph/badge.svg" alt="Coverage"></a>
+  Free, open-source CLI tool that integrates with GitHub, Linear, and Split.io to gather and analyze engineering team metrics.
 </p>
 
 ## 🚀 Installation
