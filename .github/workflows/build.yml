@@ -12,7 +12,7 @@ jobs:
     env:
       WELLCODE_APP_ID: ${{ secrets.WELLCODE_APP_ID }}
       WELLCODE_CLIENT_ID: ${{ secrets.WELLCODE_CLIENT_ID }}
-      ENVIRONMENT: development  # Use development for PR checks
+      ENVIRONMENT: development
     
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +26,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install black ruff mypy pytest pytest-cov
+          pip install -e .
       
       - name: Check code formatting with Black
         run: |
@@ -38,11 +39,11 @@ jobs:
       
       - name: Type checking with mypy
         run: |
-          mypy src
+          mypy src/wellcode_cli
       
       - name: Run tests with pytest
         run: |
-          pytest tests -v --cov=src --cov-report=xml
+          pytest -v --cov=src/wellcode_cli --cov-report=xml
       
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3

@@ -10,3 +10,10 @@ rich>=13.3.5
 plotly
 markdown
 cryptography==42.0.4
+types-requests
+types-python-dateutil
+pandas-stubs
+types-pyyaml
+types-setuptools
+types-requests-oauthlib
+types-urllib3
