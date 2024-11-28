@@ -1,65 +1,78 @@
-# Contributing to wellcode-cli
+# Contributing to Wellcode CLI
 
-First off, thank you for considering contributing to wellcode-cli! It's people like you that make wellcode-cli such a great tool.
+👍🎉 First off, thanks for taking the time to contribute! 🎉👍
 
 ## Code of Conduct
 
-By participating in this project, you are expected to uphold our [Code of Conduct](CODE_OF_CONDUCT.md).
+This project and everyone participating in it is governed by our [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
 
-## How Can I Contribute?
+## 🐛 Bug Reports
 
-### Reporting Bugs
+**Before Submitting A Bug Report**
+* Check the [debugging guide](docs/debugging.md)
+* Check if the issue has already been reported
+* Collect information about the bug:
+  * Stack trace
+  * OS and version
+  * Python version
+  * Steps to reproduce
 
-This section guides you through submitting a bug report for wellcode-cli. Following these guidelines helps maintainers and the community understand your report, reproduce the behavior, and find related reports.
+**How Do I Submit A (Good) Bug Report?**
+Create an issue using the bug report template.
 
-- Use a clear and descriptive title for the issue to identify the problem.
-- Describe the exact steps which reproduce the problem in as many details as possible.
-- Provide specific examples to demonstrate the steps.
+## 🚀 Feature Requests
 
-### Suggesting Enhancements
+**Before Submitting An Enhancement**
+* Check if there's already a similar feature request
+* Determine which repository the enhancement should be suggested in
+* Perform a cursory search to see if the enhancement has already been suggested
 
-This section guides you through submitting an enhancement suggestion for wellcode-cli, including completely new features and minor improvements to existing functionality.
+## 🔄 Pull Request Process
 
-- Use a clear and descriptive title for the issue to identify the suggestion.
-- Provide a step-by-step description of the suggested enhancement in as many details as possible.
-- Provide specific examples to demonstrate the steps.
+1. Follow all instructions in [the template](.github/PULL_REQUEST_TEMPLATE.md)
+2. Follow the [styleguides](#styleguides)
+3. After you submit your pull request, verify that all status checks are passing
 
-### Pull Requests
-
-- Fill in the required template
-- Do not include issue numbers in the PR title
-- Include screenshots and animated GIFs in your pull request whenever possible.
-- Follow the Python style guide.
-- Include thoughtfully-worded, well-structured tests.
-- Document new code based on the Documentation Styleguide
-- End all files with a newline
-
-## Styleguides
+## 📝 Styleguides
 
 ### Git Commit Messages
 
-- Use the present tense ("Add feature" not "Added feature")
-- Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
-- Limit the first line to 72 characters or less
-- Reference issues and pull requests liberally after the first line
+* Use the present tense ("Add feature" not "Added feature")
+* Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
+* Limit the first line to 72 characters
+* Reference issues and pull requests liberally after the first line
+* Consider starting the commit message with an applicable emoji:
+    * 🎨 `:art:` when improving the format/structure of the code
+    * 🐎 `:racehorse:` when improving performance
+    * 📝 `:memo:` when writing docs
+    * 🐛 `:bug:` when fixing a bug
+    * 🔥 `:fire:` when removing code or files
 
 ### Python Styleguide
 
-All Python code must adhere to the [PEP 8 style guide](https://www.python.org/dev/peps/pep-0008/).
+* Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/)
+* Use type hints
+* Write docstrings for all public methods
+* Use meaningful variable names
 
 ### Documentation Styleguide
 
-- Use [Markdown](https://daringfireball.net/projects/markdown/).
+* Use [Markdown](https://daringfireball.net/projects/markdown/)
+* Reference functions and classes in backticks: \`func()\`
+* Document all functions and classes
 
-## Additional Notes
+## 🏷️ Issue and Pull Request Labels
 
-### Issue and Pull Request Labels
+| Label name | Description |
+| --- | --- |
+| `bug` | Confirmed bugs or reports that are very likely to be bugs |
+| `enhancement` | Feature requests |
+| `documentation` | Documentation improvements |
+| `good first issue` | Good for newcomers |
+| `help wanted` | Extra attention is needed |
 
-This section lists the labels we use to help us track and manage issues and pull requests.
+## ⭐ Getting Help
 
-* `bug` - Issues that are bugs.
-* `enhancement` - Issues that are feature requests.
-* `documentation` - Issues or pull requests related to documentation.
-* `good first issue` - Good for newcomers.
-
-Thank you for contributing to wellcode-cli!
+* Join our [Discord community](https://discord.gg/wellcode)
+* Check out the [documentation](https://docs.wellcode.ai)
+* Email us at support@wellcode.ai

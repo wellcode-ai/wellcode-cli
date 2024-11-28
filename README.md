@@ -12,6 +12,8 @@
   <a href="https://pypi.org/project/wellcode-cli/"><img src="https://img.shields.io/pypi/v/wellcode-cli.svg" alt="PyPI version"></a>
   <a href="https://pypi.org/project/wellcode-cli/"><img src="https://img.shields.io/pypi/pyversions/wellcode-cli.svg" alt="Python versions"></a>
   <a href="https://github.com/wellcode-ai/wellcode-cli/blob/main/LICENSE"><img src="https://img.shields.io/github/license/wellcode-ai/wellcode-cli.svg" alt="License"></a>
+  <a href="https://github.com/wellcode-ai/wellcode-cli/actions"><img src="https://github.com/wellcode-ai/wellcode-cli/workflows/tests/badge.svg" alt="Tests"></a>
+  <a href="https://codecov.io/gh/wellcode-ai/wellcode-cli"><img src="https://codecov.io/gh/wellcode-ai/wellcode-cli/branch/main/graph/badge.svg" alt="Coverage"></a>
 </p>
 
 ## 🚀 Installation
@@ -100,6 +102,22 @@ wellcode-cli
 - Issues: https://github.com/wellcode-ai/wellcode-cli/issues
 - Email: support@wellcode.ai
 
+## 📄 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+## 💖 Contributors
+
+Thanks goes to these wonderful people:
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<!-- Add contributors here -->
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
 ## 📄 License
 
-MIT License - see LICENSE file for details
+MIT License - see [LICENSE](LICENSE) file for details
