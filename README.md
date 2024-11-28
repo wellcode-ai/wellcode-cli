@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://wellcode.ai/logo.png" alt="Wellcode Logo" width="200"/>
+  <img src="https://cli.wellcode.ai/wellcode.svg" alt="Wellcode Logo" width="200"/>
 </p>
 
 <h1 align="center">Wellcode CLI</h1>
