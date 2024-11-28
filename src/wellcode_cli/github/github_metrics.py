@@ -362,7 +362,7 @@ def update_time_metrics(pr, commits, repo_metrics, org_metrics, start_date, end_
                             org_metrics.prs_merged_to_main / days_in_period
                         )
     except Exception as e:
-        print(f"DEBUG: Error in update_time_metrics: {str(e)}")
+        logging.error(f"Error in update_time_metrics: {str(e)}")
         # Continue processing even if there's an error with one PR
         pass
 

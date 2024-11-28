@@ -8,12 +8,12 @@ from wellcode_cli import __version__
 from .commands import chat, chat_interface, completion, config, report, review
 
 # Configure rich-click
-click.USE_RICH_MARKUP = True
-click.USE_MARKDOWN = True
-click.SHOW_ARGUMENTS = True
-click.GROUP_ARGUMENTS_OPTIONS = True
-click.STYLE_ERRORS_SUGGESTION = "yellow italic"
-click.ERRORS_SUGGESTION = "Try '--help' for more information."
+click.rich_click.USE_RICH_MARKUP = True
+click.rich_click.USE_MARKDOWN = True
+click.rich_click.SHOW_ARGUMENTS = True
+click.rich_click.GROUP_ARGUMENTS_OPTIONS = True
+click.rich_click.STYLE_ERRORS_SUGGESTION = "yellow italic"
+click.rich_click.ERRORS_SUGGESTION = "Try '--help' for more information."
 
 # Initialize rich console
 console = Console()

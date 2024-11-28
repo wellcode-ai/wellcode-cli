@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 
 import requests
@@ -89,7 +90,7 @@ def get_linear_metrics(start_date, end_date, user_filter=None) -> LinearOrgMetri
         data = response.json()
 
         if "errors" in data:
-            print("Error in Linear API response:", data["errors"])
+            logging.error("Error in Linear API response:", data["errors"])
             raise RuntimeError(f"Linear API error: {data['errors']}")
 
         issues_data = data["data"]["issues"]

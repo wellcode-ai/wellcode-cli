@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 
 from anthropic import Anthropic
@@ -166,9 +167,9 @@ A score from 1-10 based on industry standards
         return message.content[0].text if message.content else ""
 
     except Exception as e:
-        print(f"Unexpected error in get_ai_analysis: {str(e)}")
-        print("Error type:", type(e).__name__)
+        logging.error(f"Unexpected error in get_ai_analysis: {str(e)}")
+        logging.error("Error type:", type(e).__name__)
         import traceback
 
-        print("Traceback:", traceback.format_exc())
+        logging.error("Traceback:", traceback.format_exc())
         return ""
