@@ -43,7 +43,7 @@ jobs:
       
       - name: Run tests with pytest
         run: |
-          pytest -v --cov=src/wellcode_cli --cov-report=xml
+          PYTHONPATH=$PYTHONPATH:${{ github.workspace }}/src pytest -v --cov=src/wellcode_cli --cov-report=xml
       
       - name: Build package
         run: |
