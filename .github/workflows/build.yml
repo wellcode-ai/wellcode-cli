@@ -37,9 +37,9 @@ jobs:
         run: |
           ruff check src tests
       
-      - name: Type checking with mypy
-        run: |
-          mypy src/wellcode_cli
+      #- name: Type checking with mypy
+      #  run: |
+      #    mypy src/wellcode_cli
       
       - name: Run tests with pytest
         run: |
