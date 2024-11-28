@@ -84,12 +84,13 @@ def get_linear_metrics(start_date, end_date, user_filter=None) -> LinearOrgMetri
             LINEAR_API_ENDPOINT,
             json={"query": query, "variables": variables},
             headers=headers,
+            timeout=30
         )
         data = response.json()
 
         if "errors" in data:
             print("Error in Linear API response:", data["errors"])
-            return None
+            raise RuntimeError(f"Linear API error: {data['errors']}")
 
         issues_data = data["data"]["issues"]
         all_issues.extend(issues_data["nodes"])
@@ -206,8 +207,10 @@ def calculate_estimation_accuracy(issues):
             else:
                 accuracy_metrics["overestimates"] += 1
 
-        except Exception:
-            pass
+        except Exception as e:
+            # Log the error or handle it more specifically
+            console.print(f"Error calculating estimation accuracy: {str(e)}")
+            continue
 
     return accuracy_metrics
 

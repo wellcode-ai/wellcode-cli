@@ -16,6 +16,7 @@ def request_device_code(client_id: str):
         "https://github.com/login/device/code",
         headers={"Accept": "application/json"},
         data={"client_id": client_id},
+        timeout=30
     )
     data = response.json()
 
@@ -36,6 +37,7 @@ def poll_for_token(client_id: str, device_code: str, interval: int):
                 "device_code": device_code,
                 "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
             },
+            timeout=30
         )
         data = response.json()
 
