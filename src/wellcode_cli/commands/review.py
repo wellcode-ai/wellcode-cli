@@ -75,7 +75,7 @@ def review(start_date, end_date, user, team):
     with console.status("[bold green]Fetching metrics...") as status:
         # GitHub metrics
         github_client = GithubClient()
-        if github_client._get_installation_id(org_name):
+        if github_client._check_app_installation(org_name):
             status.update("Fetching GitHub metrics...")
             metrics = get_github_metrics(org_name, start_date, end_date, user, team)
             if metrics:

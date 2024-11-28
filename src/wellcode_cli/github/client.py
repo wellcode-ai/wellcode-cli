@@ -1,4 +1,4 @@
-from github import Github, GithubIntegration
+from github import Github
 from rich.console import Console
 import threading
 from ..utils import load_config
@@ -6,6 +6,7 @@ from .app_config import WELLCODE_APP
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
+from .auth import get_user_token
 
 console = Console()
 
@@ -33,7 +34,7 @@ def create_global_session():
 GITHUB_SESSION = create_global_session()
 
 class GithubClient:
-    """Thread-safe GitHub client wrapper using Wellcode GitHub App"""
+    """Thread-safe GitHub client wrapper"""
     _instance = None
     _lock = threading.Lock()
     
@@ -44,8 +45,51 @@ class GithubClient:
                 cls._instance._local = threading.local()
             return cls._instance
     
+    def _ensure_token(self):
+        """Ensure we have a valid token"""
+        if not hasattr(self._local, 'token'):
+            self._local.token = get_user_token()
+            if not self._local.token:
+                raise ValueError("GitHub authentication required")
+    
+    def _get_installation_id(self, org_name: str) -> int:
+        """Get the installation ID for the organization"""
+        try:
+            self._ensure_token()  # Make sure we have a token
+            
+            headers = {
+                'Accept': 'application/vnd.github+json',
+                'Authorization': f'token {self._local.token}'
+            }
+            
+            url = 'https://api.github.com/user/installations'
+            response = GITHUB_SESSION.get(url, headers=headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                installations = data.get('installations', [])
+                for installation in installations:
+                    account = installation.get('account', {})
+                    if account.get('login', '').lower() == org_name.lower():
+                        return installation.get('id')
+            
+            return None
+        except Exception as e:
+            console.print(f"[red]Error checking app installation: {str(e)}[/]")
+            return None
+
+    def _check_app_installation(self, org_name: str) -> bool:
+        """Check if the GitHub App is installed for the organization"""
+        installation_id = self._get_installation_id(org_name)
+        if installation_id:
+            return True
+        
+        console.print(f"[yellow]No installation found for organization: {org_name}[/]")
+        return False
+    
     @property
     def client(self):
+        """Get the GitHub client, ensuring we have a token and app installation"""
         if not hasattr(self._local, 'github'):
             config = load_config()
             org_name = config.get('GITHUB_ORG')
@@ -55,67 +99,23 @@ class GithubClient:
                 console.print("Please run: wellcode-cli config")
                 raise ValueError("Organization name required")
             
-            installation_id = self._get_installation_id(org_name)
-            if not installation_id:
-                console.print(f"""[red]Error: Wellcode GitHub App not installed for {org_name}[/]
-                
-Please install the Wellcode GitHub App:
-1. Visit: {WELLCODE_APP['APP_URL']}
-2. Click "Install"
-3. Select your organization ({org_name})
-""")
+            # Ensure we have a token
+            self._ensure_token()
+            
+            # Check if the GitHub App is installed
+            if not self._check_app_installation(org_name):
+                console.print("[red]Error: Wellcode GitHub App not installed[/]")
+                console.print(f"Please install the app at: {WELLCODE_APP['APP_URL']}")
+                console.print(f"Select organization: {org_name}")
                 raise ValueError("GitHub App installation required")
             
-            self._local.github = self._get_app_client(installation_id)
+            # Create GitHub client with user token
+            self._local.github = Github(self._local.token)
             self._local.github._Github__requester._Requester__session = GITHUB_SESSION
         
         return self._local.github
-    
-    def _get_installation_id(self, org_name):
-        """Get installation ID for the organization"""
-        try:
-            # Create JWT for app authentication
-            integration = GithubIntegration(
-                WELLCODE_APP['APP_ID'],
-                WELLCODE_APP['PRIVATE_KEY']
-            )
-            jwt = integration.create_jwt()
-            
-            # Use REST API with JWT authentication
-            headers = {
-                'Accept': 'application/vnd.github.v3+json',
-                'Authorization': f'Bearer {jwt}',
-            }
-            
-            response = GITHUB_SESSION.get(
-                f'https://api.github.com/orgs/{org_name}/installation',
-                headers=headers
-            )
-            
-            if response.status_code == 200:
-                return response.json()['id']
-            return None
-        except Exception as e:
-            console.print(f"[red]Error checking app installation: {str(e)}[/]")
-            return None
-    
-    def _get_app_client(self, installation_id):
-        """Get authenticated client using Wellcode GitHub App"""
-        try:            
-            integration = GithubIntegration(
-                WELLCODE_APP['APP_ID'],
-                WELLCODE_APP['PRIVATE_KEY'],
-            )
-            # Get installation token
-            access_token = integration.get_access_token(installation_id)
-            
-            # Create Github instance with the token string
-            return Github(access_token.token)
-        except Exception as e:
-            console.print(f"[red]Error getting app client: {str(e)}[/]")
-            return None
-    
+
 def get_github_client():
-    """Returns an authenticated GitHub client instance using GitHub App"""
+    """Returns an authenticated GitHub client instance"""
     github_client = GithubClient()
     return github_client.client

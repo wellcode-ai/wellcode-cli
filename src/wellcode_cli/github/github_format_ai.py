@@ -75,6 +75,7 @@ def format_ai_response(response):
 
 def get_ai_analysis(all_metrics):
     """Generate AI analysis from all metrics sources."""
+    metrics_summary = {}
     try:
         # GitHub metrics
         if 'github' in all_metrics:

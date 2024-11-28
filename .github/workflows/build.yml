@@ -1,0 +1,121 @@
+name: Build and Quality Check
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    env:
+      WELLCODE_APP_ID: ${{ secrets.WELLCODE_APP_ID }}
+      WELLCODE_CLIENT_ID: ${{ secrets.WELLCODE_CLIENT_ID }}
+      ENVIRONMENT: development  # Use development for PR checks
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt  # Development dependencies
+      
+      - name: Check code formatting with Black
+        run: |
+          black --check src tests
+      
+      - name: Lint with Ruff
+        run: |
+          ruff check src tests
+      
+      - name: Type checking with mypy
+        run: |
+          mypy src
+      
+      - name: Run tests with pytest
+        run: |
+          pytest tests -v --cov=src --cov-report=xml
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: true
+      
+      - name: Build package
+        run: |
+          pip install build
+          python -m build
+      
+      - name: Check package structure
+        run: |
+          pip install twine check-wheel-contents
+          twine check dist/*
+          check-wheel-contents dist/*.whl
+
+  compatibility:
+    needs: quality
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+    
+    env:
+      WELLCODE_APP_ID: ${{ secrets.WELLCODE_APP_ID }}
+      WELLCODE_CLIENT_ID: ${{ secrets.WELLCODE_CLIENT_ID }}
+      ENVIRONMENT: development
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+      
+      - name: Run tests
+        run: |
+          pytest tests -v
+
+  security:
+    needs: quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety
+      
+      - name: Run security checks with Bandit
+        run: |
+          bandit -r src
+      
+      - name: Check dependencies for known vulnerabilities
+        run: |
+          safety check

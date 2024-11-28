@@ -10,6 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write  # Needed for creating releases
+    
+    env:
+      WELLCODE_APP_ID: ${{ secrets.WELLCODE_APP_ID }}
+      WELLCODE_CLIENT_ID: ${{ secrets.WELLCODE_CLIENT_ID }}
+      ENVIRONMENT: production
+      
     steps:
       - uses: actions/checkout@v4
         with:

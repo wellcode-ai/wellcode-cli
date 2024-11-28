@@ -44,7 +44,7 @@ def get_github_metrics(org_name: str, start_date, end_date, user_filter=None, te
         github_client = GithubClient()
         
         # Validate GitHub App installation
-        if not github_client._get_installation_id(org_name):
+        if not github_client._check_app_installation(org_name):
             console.print("[red]Error: GitHub App not installed[/]")
             console.print(f"Please install the app at: {WELLCODE_APP['APP_URL']}")
             return None
