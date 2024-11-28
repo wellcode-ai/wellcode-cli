@@ -48,9 +48,15 @@ include = [
     "src/wellcode_cli/**/*.py",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
 [tool.pytest.ini_options]
 pythonpath = [
-    "."
+    "src"
 ]
 testpaths = [
     "tests"
