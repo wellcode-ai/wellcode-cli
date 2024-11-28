@@ -1,17 +1,18 @@
+import anthropic
+import rich_click as click
 from rich.console import Console
 from rich.markdown import Markdown
-from ..utils import  get_latest_analysis
-import rich_click as click
-
-import anthropic
-from ..config import get_anthropic_api_key
 from rich.prompt import Prompt
-console = Console()
+
+from ..config import get_anthropic_api_key
+from ..utils import get_latest_analysis
 from .review import review
+
+console = Console()
 
 
 @click.command()
-@click.argument('initial_question', required=False)
+@click.argument("initial_question", required=False)
 def chat(initial_question=None):
     """Interactive chat about your engineering metrics"""
     # Get the latest analysis data
@@ -21,16 +22,20 @@ def chat(initial_question=None):
         ctx = click.get_current_context()
         ctx.invoke(review)
         data = get_latest_analysis()
-    
+
     # Load configuration
     if not get_anthropic_api_key():
-        console.print("[red]Error: Anthropic API key not configured. Please run 'wellcode-cli config'[/]")
+        console.print(
+            "[red]Error: Anthropic API key not configured. Please run 'wellcode-cli config'[/]"
+        )
         return
 
     client = anthropic.Client(api_key=get_anthropic_api_key())
-    
+
     console.print("[bold blue]Wellcode AI Chat[/]")
-    console.print("Ask questions about your engineering metrics. Type 'exit' to quit.\n")
+    console.print(
+        "Ask questions about your engineering metrics. Type 'exit' to quit.\n"
+    )
 
     # Initialize system prompt
     system_prompt = f"""You are an engineering metrics analyst. You have access to the following data:
@@ -74,33 +79,35 @@ Please provide your analysis and answer based on the given metrics and previous 
                 model="claude-3-sonnet-20240229",
                 max_tokens=2048,
                 messages=messages,
-                system=system_prompt
+                system=system_prompt,
             )
             assistant_message = response.content[0].text
             console.print("\n[bold green]Answer:[/]")
-            console.print(Markdown(assistant_message))      
+            console.print(Markdown(assistant_message))
             return False  # Signal to return to main prompt
 
     # Continue with interactive chat
     while True:
         # Get user input
-        question = Prompt.ask("\n[cyan]What would you like to know about your metrics?[/]")
-        
-        if question.lower() in ['exit', 'quit', 'q']:
+        question = Prompt.ask(
+            "\n[cyan]What would you like to know about your metrics?[/]"
+        )
+
+        if question.lower() in ["exit", "quit", "q"]:
             break
 
         with console.status("[bold green]Thinking..."):
             # Add user question to messages
             messages.append({"role": "user", "content": question})
-            
+
             # Get response from Claude
             response = client.messages.create(
                 model="claude-3-sonnet-20240229",
                 max_tokens=2048,
                 messages=messages,
-                system=system_prompt
+                system=system_prompt,
             )
-            
+
             # Add assistant response to messages
             assistant_message = response.content[0].text
             messages.append({"role": "assistant", "content": assistant_message})

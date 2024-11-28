@@ -1,10 +1,12 @@
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Optional
-from dataclasses import dataclass
-from rich.panel import Panel
+
 import rich_click as click
 from rich.console import Console
+from rich.panel import Panel
+
 
 class CommandType(Enum):
     REVIEW = "review"
@@ -14,10 +16,12 @@ class CommandType(Enum):
     EXIT = "exit"
     CHAT = "chat"
 
+
 @dataclass
 class TimeRange:
     start_date: datetime
     end_date: datetime
+
 
 @dataclass
 class Command:
@@ -27,6 +31,7 @@ class Command:
     examples: list[str] = None
     time_range: Optional[TimeRange] = None
 
+
 COMMANDS = {
     CommandType.REVIEW: Command(
         type=CommandType.REVIEW,
@@ -35,16 +40,12 @@ COMMANDS = {
             "review my team's performance",
             "show metrics for last week",
             "review pull requests",
-        ]
+        ],
     ),
     CommandType.CONFIG: Command(
         type=CommandType.CONFIG,
         description="Configure your settings",
-        examples=[
-            "setup my workspace",
-            "configure integrations",
-            "setup github token"
-        ]
+        examples=["setup my workspace", "configure integrations", "setup github token"],
     ),
     CommandType.REPORT: Command(
         type=CommandType.REPORT,
@@ -52,30 +53,27 @@ COMMANDS = {
         examples=[
             "create a report",
             "show me charts",
-            "generate metrics visualization"
-        ]
+            "generate metrics visualization",
+        ],
     ),
     CommandType.CHAT: Command(
         type=CommandType.CHAT,
         description="Start interactive chat mode",
-        examples=[
-            "start chat",
-            "chat mode",
-            "interactive mode"
-        ]
+        examples=["start chat", "chat mode", "interactive mode"],
     ),
     CommandType.HELP: Command(
         type=CommandType.HELP,
         description="Show available commands and examples",
-        examples=["help", "?"]
-    )
+        examples=["help", "?"],
+    ),
 }
+
 
 def get_claude_system_prompt():
     today = datetime.now(timezone.utc)
-    yesterday = (today - timedelta(days=1)).strftime('%Y-%m-%d')
-    today = today.strftime('%Y-%m-%d')
-    
+    yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
+    today = today.strftime("%Y-%m-%d")
+
     return f"""You are a CLI command interpreter for the Wellcode engineering metrics tool. Convert natural language input into specific commands.
 
 Today's date is {today}.
@@ -193,51 +191,53 @@ Example Inputs and Outputs:
 
 Remember: Use chat mode for analytical questions and review for direct metric queries."""
 
+
 def parse_time_range(command_str: str) -> Optional[TimeRange]:
     """Parse temporal expressions from command string"""
     now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    
+
     if "yesterday" in command_str.lower():
         end_date = today_start
         start_date = end_date - timedelta(days=1)
         return TimeRange(start_date, end_date)
-    
+
     if "last week" in command_str.lower():
         end_date = today_start
         start_date = end_date - timedelta(days=7)
         return TimeRange(start_date, end_date)
-    
+
     if "this week" in command_str.lower():
         end_date = today_start + timedelta(days=1)  # Include today
         start_date = today_start - timedelta(days=today_start.weekday())
         return TimeRange(start_date, end_date)
-    
+
     # Default to last 7 days if no temporal expression found
     return None
+
 
 def parse_command(command_str: str) -> tuple[CommandType, list, Optional[TimeRange]]:
     """Parse a command string into command type, arguments, and time range"""
     # Single command mapping definition
     cmd_mapping = {
-        'review': CommandType.REVIEW,
-        'check': CommandType.REVIEW,
-        'show': CommandType.REVIEW,
-        'config': CommandType.CONFIG,
-        'setup': CommandType.CONFIG,
-        'configure': CommandType.CONFIG,
-        'report': CommandType.REPORT,
-        'chart': CommandType.REPORT,
-        'help': CommandType.HELP,
-        '?': CommandType.HELP,
-        'exit': CommandType.EXIT,
-        'quit': CommandType.EXIT,
-        'q': CommandType.EXIT
+        "review": CommandType.REVIEW,
+        "check": CommandType.REVIEW,
+        "show": CommandType.REVIEW,
+        "config": CommandType.CONFIG,
+        "setup": CommandType.CONFIG,
+        "configure": CommandType.CONFIG,
+        "report": CommandType.REPORT,
+        "chart": CommandType.REPORT,
+        "help": CommandType.HELP,
+        "?": CommandType.HELP,
+        "exit": CommandType.EXIT,
+        "quit": CommandType.EXIT,
+        "q": CommandType.EXIT,
     }
-    
+
     parts = command_str.strip().split()
     time_range = parse_time_range(command_str)
-    
+
     if not parts:
         return CommandType.CHAT, [command_str], time_range
 
@@ -247,7 +247,7 @@ def parse_command(command_str: str) -> tuple[CommandType, list, Optional[TimeRan
     # Check for exact command match
     if cmd in cmd_mapping:
         return cmd_mapping[cmd], args, time_range
-        
+
     # Check if any command keyword is in the string
     for key, value in cmd_mapping.items():
         if key in command_str.lower():
@@ -256,15 +256,18 @@ def parse_command(command_str: str) -> tuple[CommandType, list, Optional[TimeRan
                 if len(parts) > 1 and parts[1].strip():
                     return value, [parts[1].strip().split()[0]], time_range
             return value, [], time_range
-    
+
     # Default to chat with original input
     return CommandType.CHAT, [command_str], time_range
+
 
 def show_help():
     """Show help information"""
     console = Console()
-    
-    console.print(Panel("""
+
+    console.print(
+        Panel(
+            """
 [bold cyan]Available Commands:[/]
 
 [bold]1. Review Performance[/]
@@ -314,31 +317,38 @@ def show_help():
 • If GitHub metrics are not showing, verify the GitHub App is installed correctly
 • For organizations with SAML SSO, ensure the GitHub App is authorized for your organization
 • For other integrations, check your API keys in the configuration
-""", title="Wellcode.ai Help", border_style="blue"))
+""",
+            title="Wellcode.ai Help",
+            border_style="blue",
+        )
+    )
+
 
 console = Console()
 
+
 @click.command()
-@click.argument('shell', type=click.Choice(['bash', 'zsh', 'fish']))
+@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
 def completion(shell):
     """Generate shell completion script"""
     completion_scripts = {
-        'bash': """
+        "bash": """
 # Wellcode CLI bash completion
 eval "$(_WELLCODE_CLI_COMPLETE=bash_source wellcode-cli)"
 """,
-        'zsh': """
+        "zsh": """
 # Wellcode CLI zsh completion
 eval "$(_WELLCODE_CLI_COMPLETE=zsh_source wellcode-cli)"
 """,
-        'fish': """
+        "fish": """
 # Wellcode CLI fish completion
 eval (env _WELLCODE_CLI_COMPLETE=fish_source wellcode-cli)
-"""
+""",
     }
-    
-    console.print(Panel(
-        f"""[bold green]Shell Completion Script for {shell}[/]
+
+    console.print(
+        Panel(
+            f"""[bold green]Shell Completion Script for {shell}[/]
         
 To enable completion, add this to your shell configuration:
 
@@ -351,6 +361,7 @@ To enable completion, add this to your shell configuration:
 
 [bold red]Note:[/] You'll need to restart your shell or source the config file after adding the script.
 """,
-        title=f"Wellcode.ai {shell.upper()} Completion",
-        border_style="blue"
-    ))
+            title=f"Wellcode.ai {shell.upper()} Completion",
+            border_style="blue",
+        )
+    )
