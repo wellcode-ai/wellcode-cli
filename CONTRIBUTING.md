@@ -74,5 +74,5 @@ Create an issue using the bug report template.
 ## ⭐ Getting Help
 
 * Join our [Discord community](https://discord.gg/wellcode)
-* Check out the [documentation](https://docs.wellcode.ai)
+* Check out the [documentation](https://cli.wellcode.ai)
 * Email us at support@wellcode.ai

@@ -98,7 +98,7 @@ wellcode-cli
 
 ## 🆘 Support
 
-- Documentation: https://docs.wellcode.ai
+- Documentation: https://cli.wellcode.ai
 - Issues: https://github.com/wellcode-ai/wellcode-cli/issues
 - Email: support@wellcode.ai
 
