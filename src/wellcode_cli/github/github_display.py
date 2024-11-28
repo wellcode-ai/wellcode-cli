@@ -99,7 +99,7 @@ def display_github_metrics(org_metrics):
         f"[bold]Active Reviewers:[/] {len(set().union(*review.reviewers_per_pr.values())) if review.reviewers_per_pr else 0}\n" +
         f"[bold]Comments Given:[/] {review.review_comments_given}\n" +
         f"[bold]Avg Reviewers per PR:[/] {statistics.mean([len(r) for r in review.reviewers_per_pr.values()]) if review.reviewers_per_pr else 0:.1f}\n" +
-        f"[bold]Review Coverage:[/] {len(review.reviewers_per_pr) / total_prs_created * 100:.1f}% PRs reviewed",
+        f"[bold]Review Coverage:[/] {(len(review.reviewers_per_pr) / total_prs_created * 100) if total_prs_created > 0 else 0:.1f}% PRs reviewed",
         title="[bold yellow]Review Health",
         box=box.ROUNDED
     ))
@@ -123,15 +123,15 @@ def display_github_metrics(org_metrics):
 
     # 4. Team Collaboration - Enhanced
     collab = org_metrics.collaboration_metrics
-    avg_comments = statistics.mean(list(collab.review_comments_per_pr.values())) if collab.review_comments_per_pr else 0
-    
+    review_comments = list(collab.review_comments_per_pr.values())
+    avg_comments = statistics.mean(review_comments) if review_comments else 0    
     console.print(Panel(
         f"[bold cyan]Cross-Team Reviews:[/] {collab.cross_team_reviews}\n" +
         f"[bold red]Self-Merges:[/] {collab.self_merges}\n" +
         f"[bold yellow]Team Reviews:[/] {collab.team_reviews}\n" +
         f"[bold blue]External Reviews:[/] {collab.external_reviews}\n" +
         f"[bold green]Avg Comments/PR:[/] {avg_comments:.1f}\n" +
-        f"[bold]Review Participation:[/] {collab.get_stats()['review_participation_rate']:.1%}",
+        f"[bold]Review Participation:[/] {collab.get_stats().get('review_participation_rate', 0):.1%}",
         title="[bold]Team Collaboration",
         box=box.ROUNDED
     ))

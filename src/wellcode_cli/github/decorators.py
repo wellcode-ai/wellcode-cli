@@ -2,7 +2,6 @@ from functools import wraps
 from github import GithubException
 from rich.console import Console
 import time
-from datetime import datetime
 
 console = Console()
 
@@ -31,12 +30,6 @@ def handle_github_errors(retries=3, delay=2):
                         # Calculate wait time
                         current_time = int(time.time())
                         wait_time = max(reset_time - current_time, 0)
-                        
-                        # Show detailed rate limit information
-                        console.print(f"[yellow]Rate limit status for {resource}:[/]")
-                        console.print(f"[yellow]Used: {used}/{limit} requests[/]")
-                        console.print(f"[yellow]Remaining: {remaining} requests[/]")
-                        console.print(f"[yellow]Reset time: {datetime.fromtimestamp(reset_time).strftime('%Y-%m-%d %H:%M:%S')}[/]")
                         
                         if remaining == 0:
                             console.print(f"[yellow]Rate limit exceeded. Waiting {wait_time} seconds until reset...[/]")

@@ -3,19 +3,22 @@ import json
 import rich_click as click
 from rich.console import Console
 from rich.prompt import Prompt, Confirm
-from rich.panel import Panel
 from ..config import get_github_token, get_github_org, get_linear_api_key, get_split_api_key, get_anthropic_api_key
 console = Console()
 CONFIG_FILE = Path.home() / '.wellcode' / 'config.json'
 
 @click.command()
 def config():
-    """Configure Wellcode CLI settings"""
-    console.print(Panel.fit(
-        "🔧 Wellcode CLI Configuration",
-        subtitle="Setup your integrations"
-    ))
-
+    """Configure the CLI"""
+    console.print("\n[bold]Wellcode.ai Configuration[/]")
+    
+    console.print("\n[bold cyan]GitHub Configuration[/]")
+    console.print("[yellow]Required Token Permissions:[/]")
+    console.print("• repo - Full repository access")
+    console.print("• read:org - Read organization data")
+    console.print("• read:user - Read user data")
+    console.print("• read:discussion - Read discussions")
+    console.print("[yellow]Note:[/] For SAML SSO organizations, authorize your token in GitHub settings")    
     # Create config directory if it doesn't exist
     CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
 

@@ -2,6 +2,9 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Optional
 from dataclasses import dataclass
+from rich.panel import Panel
+import rich_click as click
+from rich.console import Console
 
 class CommandType(Enum):
     REVIEW = "review"
@@ -258,13 +261,92 @@ def parse_command(command_str: str) -> tuple[CommandType, list, Optional[TimeRan
     return CommandType.CHAT, [command_str], time_range
 
 def show_help():
-    """Display help information about available commands"""
-    from rich.console import Console
+    """Show help information"""
     console = Console()
     
-    console.print("\n[bold cyan]Available Commands:[/]")
-    for cmd in COMMANDS.values():
-        console.print(f"\n• [bold]{cmd.type.value}[/] - {cmd.description}")
-        console.print("  Examples:")
-        for example in cmd.examples:
-            console.print(f"  - {example}")
+    console.print(Panel("""
+[bold cyan]Available Commands:[/]
+
+[bold]1. Review Performance[/]
+  • [yellow]review[/] - Show metrics for specified time range
+    Examples:
+    - [dim]"check performance of team frontend"[/dim]
+    - [dim]"show metrics for user johndoe"[/dim]
+    - [dim]"check performance of the last three days"[/dim]
+    - [dim]"how was team backend doing last week"[/dim]
+
+[bold]2. Configuration[/]
+  • [yellow]config[/] - Configure GitHub, Linear and Split.io tokens
+    [bold red]Required GitHub Token Permissions:[/]
+    - [dim]repo[/dim] - Full repository access
+    - [dim]read:org[/dim] - Read organization data
+    - [dim]read:user[/dim] - Read user data
+    - [dim]read:discussion[/dim] - Read discussions
+    [bold yellow]Note:[/] For organizations with SAML SSO, you must authorize your token for the organization
+
+[bold]3. Shell Completion[/]
+  • [yellow]completion[/] - Enable shell autocompletion
+    For bash: [dim]wellcode-cli completion bash >> ~/.bashrc[/dim]
+    For zsh:  [dim]wellcode-cli completion zsh >> ~/.zshrc[/dim]
+    For fish: [dim]wellcode-cli completion fish > ~/.config/fish/completions/wellcode-cli.fish[/dim]
+
+[bold]4. Reports[/]
+  • [yellow]report[/] - Generate detailed HTML reports
+    Example: [dim]"generate report for last month"[/dim]
+
+[bold]5. Chat[/]
+  • [yellow]chat[/] - Start interactive analysis chat
+    Example: [dim]"let's analyze team performance"[/dim]
+
+[bold]6. Exit[/]
+  • Type 'exit', 'quit', or 'q' to exit
+
+[bold cyan]Getting Started:[/]
+1. Run [yellow]config[/] to set up your tokens
+2. Enable autocompletion with [yellow]completion[/] command
+3. Try [yellow]"check performance of team <teamname>"[/] to see team metrics
+4. Use [yellow]"help"[/] anytime to see this message
+
+[bold red]Troubleshooting:[/]
+• If you see permission errors, ensure your GitHub token has the required permissions
+• For SAML SSO organizations, authorize your token in GitHub organization settings
+""", title="Wellcode.ai Help", border_style="blue"))
+
+console = Console()
+
+@click.command()
+@click.argument('shell', type=click.Choice(['bash', 'zsh', 'fish']))
+def completion(shell):
+    """Generate shell completion script"""
+    completion_scripts = {
+        'bash': """
+# Wellcode CLI bash completion
+eval "$(_WELLCODE_CLI_COMPLETE=bash_source wellcode-cli)"
+""",
+        'zsh': """
+# Wellcode CLI zsh completion
+eval "$(_WELLCODE_CLI_COMPLETE=zsh_source wellcode-cli)"
+""",
+        'fish': """
+# Wellcode CLI fish completion
+eval (env _WELLCODE_CLI_COMPLETE=fish_source wellcode-cli)
+"""
+    }
+    
+    console.print(Panel(
+        f"""[bold green]Shell Completion Script for {shell}[/]
+        
+To enable completion, add this to your shell configuration:
+
+[yellow]{completion_scripts[shell]}[/]
+
+[bold]Configuration File Locations:[/]
+• bash: ~/.bashrc
+• zsh:  ~/.zshrc
+• fish: ~/.config/fish/completions/wellcode-cli.fish
+
+[bold red]Note:[/] You'll need to restart your shell or source the config file after adding the script.
+""",
+        title=f"Wellcode.ai {shell.upper()} Completion",
+        border_style="blue"
+    ))

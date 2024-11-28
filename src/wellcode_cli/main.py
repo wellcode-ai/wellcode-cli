@@ -3,7 +3,7 @@ from rich.console import Console
 import logging
 
 from wellcode_cli import __version__
-from .commands import config, report,chat_interface,chat,review
+from .commands import config, report,chat_interface,chat,review,completion
 
 # Configure rich-click
 click.USE_RICH_MARKUP = True
@@ -45,6 +45,7 @@ cli.add_command(config)
 cli.add_command(chat_interface, name='chat')
 cli.add_command(chat)
 cli.add_command(report)
+cli.add_command(completion)
 
 def main():
     cli()

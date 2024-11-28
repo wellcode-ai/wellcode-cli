@@ -47,7 +47,7 @@ def review(start_date, end_date, user, team):
         console.print()  # Add a blank line for spacing
     
     # Load configuration
-    config_data = load_config()
+    load_config()
     
     console.print(Panel.fit(
         "[bold blue]Wellcode.ai[/] - Engineering Metrics Analysis",
