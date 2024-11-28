@@ -47,3 +47,11 @@ packages = ["src/wellcode_cli"]
 include = [
     "src/wellcode_cli/**/*.py",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = [
+    "."
+]
+testpaths = [
+    "tests"
+]
