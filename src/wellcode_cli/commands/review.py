@@ -12,9 +12,11 @@ from ..linear.linear_display import display_linear_metrics
 from ..split_metrics import get_split_metrics, display_split_metrics
 from ..utils import save_analysis_data
 from .config import config
-from ..config import get_github_token, get_github_org, get_linear_api_key, get_split_api_key, get_anthropic_api_key
+from ..config import get_github_org, get_linear_api_key, get_split_api_key, get_anthropic_api_key
 from ..utils import load_config
+from ..github.client import GithubClient
 from anthropic import InternalServerError, APIError, RateLimitError
+from ..github.app_config import WELLCODE_APP
 console = Console()
 CONFIG_FILE = Path.home() / '.wellcode' / 'config.json'
 
@@ -46,9 +48,15 @@ def review(start_date, end_date, user, team):
         config()
         console.print()  # Add a blank line for spacing
     
-    # Load configuration
-    load_config()
+    # Load configuration and validate GitHub App installation
+    config_data = load_config()
+    org_name = get_github_org()
     
+    if not org_name:
+        console.print("[yellow]⚠️  GitHub organization not configured[/]")
+        console.print("Please run: wellcode-cli config")
+        return
+
     console.print(Panel.fit(
         "[bold blue]Wellcode.ai[/] - Engineering Metrics Analysis",
         subtitle=f"v{__version__}",
@@ -66,13 +74,16 @@ def review(start_date, end_date, user, team):
 
     with console.status("[bold green]Fetching metrics...") as status:
         # GitHub metrics
-        if get_github_token():
+        github_client = GithubClient()
+        if github_client._get_installation_id(org_name):
             status.update("Fetching GitHub metrics...")
-            metrics = get_github_metrics(get_github_org(), start_date, end_date, user, team)
-            all_metrics['github'] = metrics
-            display_github_metrics(metrics)
+            metrics = get_github_metrics(org_name, start_date, end_date, user, team)
+            if metrics:
+                all_metrics['github'] = metrics
+                display_github_metrics(metrics)
         else:
-            console.print("[yellow]⚠️  GitHub integration not configured[/]")
+            console.print("[yellow]⚠️  GitHub App not installed[/]")
+            console.print(f"Please install the app at: {WELLCODE_APP['APP_URL']}")
 
         # Linear metrics
         if get_linear_api_key():

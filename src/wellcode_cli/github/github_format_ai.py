@@ -90,6 +90,9 @@ def get_ai_analysis(all_metrics):
         if 'split' in all_metrics:
             metrics_summary['split'] = all_metrics['split']
 
+        if not metrics_summary:
+            return "No metrics data available for analysis."
+        
         # Create the prompt with the metrics
         prompt = f"""
 You are a software development team analyst tasked with analyzing team metrics to provide insights on efficiency and areas for improvement. Your analysis should be data-driven, objective, and provide valuable insights for improving the team's performance.

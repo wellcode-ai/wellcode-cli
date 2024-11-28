@@ -1,19 +1,15 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed, Future
-from github import Github
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 import logging
 from . import decorators
 from .utils import ensure_datetime
-from ..config import get_github_token
 from .models.metrics import OrganizationMetrics
-from requests.adapters import HTTPAdapter
+from .client import GithubClient
 import threading
-from urllib3.util import Retry
-import requests
 import atexit
+from .app_config import WELLCODE_APP
 console = Console()
-
 # Global thread pool executors
 MAIN_EXECUTOR = ThreadPoolExecutor(max_workers=8)
 PR_EXECUTOR = ThreadPoolExecutor(max_workers=4)
@@ -28,60 +24,7 @@ def cleanup_executors():
 atexit.register(cleanup_executors)
 
 # Global semaphore to control concurrent connections
-connection_semaphore = threading.Semaphore(15)  # Increased from 8 to 15
-
-# Create a global session with proper pooling
-def create_global_session():
-    session = requests.Session()
-    
-    retry_strategy = Retry(
-        total=3,
-        backoff_factor=1,
-        status_forcelist=[429, 500, 502, 503, 504],
-    )
-    
-    # Increase pool settings to match our thread pool sizes
-    adapter = HTTPAdapter(
-        pool_connections=100,
-        pool_maxsize=100,
-        max_retries=retry_strategy,
-        pool_block=True
-    )
-    
-    session.mount('https://', adapter)
-    return session
-
-# Global session and semaphore
-GITHUB_SESSION = create_global_session()
-
-class GithubClient:
-    """Thread-safe GitHub client wrapper"""
-    _instance = None
-    _lock = threading.Lock()
-    
-    def __new__(cls, token):
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = super().__new__(cls)
-                cls._instance.token = token
-                cls._instance._local = threading.local()
-            return cls._instance
-    
-    @property
-    def client(self):
-        if not hasattr(self._local, 'github'):
-            self._local.github = Github(
-                login_or_token=self.token,
-                per_page=100,
-                retry=3,
-                timeout=30,
-            )
-            self._local.github._Github__requester._Requester__session = GITHUB_SESSION
-        return self._local.github
-
-def get_github_client():
-    """Get a thread-local GitHub client with proper connection pooling"""
-    return GithubClient(get_github_token())
+connection_semaphore = threading.Semaphore(15)
 
 def safe_github_call(func):
     """Decorator to ensure safe GitHub API calls with semaphore"""
@@ -97,37 +40,47 @@ def safe_github_call(func):
 @decorators.handle_github_errors()
 def get_github_metrics(org_name: str, start_date, end_date, user_filter=None, team_filter=None) -> OrganizationMetrics:
     """Main function with proper connection handling"""
-    github_client = get_github_client()
-    
-    with connection_semaphore:
-        org = github_client.client.get_organization(org_name)
-        repo_future = MAIN_EXECUTOR.submit(lambda: list(org.get_repos()))
-        team_future = MAIN_EXECUTOR.submit(get_team_members, org, team_filter) if team_filter else None
+    try:
+        github_client = GithubClient()
         
-        repos = repo_future.result()
-        team_members = team_future.result() if team_filter else set()
-    
-    org_metrics = OrganizationMetrics(name=org_name)
-    
-    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), transient=True) as progress:
-        task = progress.add_task(description="Processing repositories...", total=len(repos))
+        # Validate GitHub App installation
+        if not github_client._get_installation_id(org_name):
+            console.print("[red]Error: GitHub App not installed[/]")
+            console.print(f"Please install the app at: {WELLCODE_APP['APP_URL']}")
+            return None
         
-        futures = [
-            MAIN_EXECUTOR.submit(
-                process_repository_batch,
-                repo, org_metrics, start_date, end_date,
-                user_filter, team_filter, team_members
-            ) for repo in repos
-        ]
+        with connection_semaphore:
+            org = github_client.client.get_organization(org_name)
+            repo_future = MAIN_EXECUTOR.submit(lambda: list(org.get_repos()))
+            team_future = MAIN_EXECUTOR.submit(get_team_members, org, team_filter) if team_filter else None
+            
+            repos = repo_future.result()
+            team_members = team_future.result() if team_filter else set()
         
-        for future in as_completed(futures):
-            try:
-                future.result()
-                progress.advance(task)
-            except Exception as e:
-                logging.error(f"Error processing repository: {str(e)}")
-    
-    return org_metrics
+        org_metrics = OrganizationMetrics(name=org_name)
+        
+        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), transient=True) as progress:
+            task = progress.add_task(description="Processing repositories...", total=len(repos))
+            
+            futures = [
+                MAIN_EXECUTOR.submit(
+                    process_repository_batch,
+                    repo, org_metrics, start_date, end_date,
+                    user_filter, team_filter, team_members
+                ) for repo in repos
+            ]
+            
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                    progress.advance(task)
+                except Exception as e:
+                    logging.error(f"Error processing repository: {str(e)}")
+        
+        return org_metrics
+    except Exception as e:
+        logging.error(f"Error getting GitHub metrics: {str(e)}")
+        return None
 
 def process_repository_batch(repo, org_metrics, start_date, end_date, user_filter, team_filter, team_members):
     """Process repository with proper connection handling"""
@@ -407,6 +360,9 @@ def update_collaboration_metrics(pr, reviews, repo_metrics, org_metrics):
     # Fix: Use prs_created instead of total_prs
     if org_metrics.prs_created > 0:  # Changed from total_prs to prs_created
         org_metrics.collaboration_metrics.review_participation_rate = org_total_reviews / org_metrics.prs_created
+
+# Create console instance
+console = Console()
 
 def get_team_members(org, team_filter: str) -> set:
     """Get team members for a specific team"""

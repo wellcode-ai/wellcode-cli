@@ -276,13 +276,16 @@ def show_help():
     - [dim]"how was team backend doing last week"[/dim]
 
 [bold]2. Configuration[/]
-  • [yellow]config[/] - Configure GitHub, Linear and Split.io tokens
-    [bold red]Required GitHub Token Permissions:[/]
-    - [dim]repo[/dim] - Full repository access
-    - [dim]read:org[/dim] - Read organization data
-    - [dim]read:user[/dim] - Read user data
-    - [dim]read:discussion[/dim] - Read discussions
-    [bold yellow]Note:[/] For organizations with SAML SSO, you must authorize your token for the organization
+  • [yellow]config[/] - Configure integrations
+    [bold cyan]GitHub App Installation:[/]
+    1. Enter your organization name
+    2. Install the Wellcode GitHub App
+    3. Select repositories to analyze
+    
+    [bold cyan]Optional Integrations:[/]
+    - Linear (for issue tracking)
+    - Split.io (for feature flags)
+    - Anthropic (for AI-powered insights)
 
 [bold]3. Shell Completion[/]
   • [yellow]completion[/] - Enable shell autocompletion
@@ -302,14 +305,15 @@ def show_help():
   • Type 'exit', 'quit', or 'q' to exit
 
 [bold cyan]Getting Started:[/]
-1. Run [yellow]config[/] to set up your tokens
+1. Run [yellow]config[/] to set up GitHub App and optional integrations
 2. Enable autocompletion with [yellow]completion[/] command
 3. Try [yellow]"check performance of team <teamname>"[/] to see team metrics
 4. Use [yellow]"help"[/] anytime to see this message
 
 [bold red]Troubleshooting:[/]
-• If you see permission errors, ensure your GitHub token has the required permissions
-• For SAML SSO organizations, authorize your token in GitHub organization settings
+• If GitHub metrics are not showing, verify the GitHub App is installed correctly
+• For organizations with SAML SSO, ensure the GitHub App is authorized for your organization
+• For other integrations, check your API keys in the configuration
 """, title="Wellcode.ai Help", border_style="blue"))
 
 console = Console()

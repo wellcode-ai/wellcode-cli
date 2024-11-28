@@ -108,25 +108,26 @@ def get_latest_analysis():
         console.print(f"[red]Error accessing analysis data: {str(e)}[/]")
         return None
 
-def load_config() -> dict:
-    """Load configuration from the config file"""
-    config_data = {}
-    
-    # Check if config file exists
+def load_config():
+    """Load configuration with validation"""
+    config = {}
     if CONFIG_FILE.exists():
         try:
             with open(CONFIG_FILE) as f:
-                config_data = json.load(f)
-        except json.JSONDecodeError:
-            console.print("[red]Error: Configuration file is corrupted[/]")
+                config = json.load(f)
         except Exception as e:
-            console.print(f"[red]Error loading configuration: {str(e)}[/]")
+            console.print(f"[yellow]Warning: Error reading config file: {e}[/]")
     
-    # Validate required fields
-    required_fields = ['GITHUB_TOKEN', 'GITHUB_ORG']
-    missing_fields = [field for field in required_fields if not config_data.get(field)]
+    # Check for required GitHub organization
+    if not config.get('GITHUB_ORG'):
+        console.print("[yellow]Warning: GitHub organization not configured[/]")
+        console.print("Please run: wellcode-cli config")
     
-    if missing_fields:
-        console.print(f"[yellow]Warning: Missing required configuration: {', '.join(missing_fields)}[/]")
-    
-    return config_data
+    return config
+
+def validate_github_config():
+    """Validate GitHub configuration"""
+    config = load_config()
+    if not config.get('GITHUB_ORG'):
+        raise ValueError("GitHub organization not configured. Please run: wellcode-cli config")
+    return True

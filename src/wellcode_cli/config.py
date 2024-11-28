@@ -3,7 +3,6 @@ import json
 import os
 from typing import Optional
 from rich.console import Console
-
 console = Console()
 
 CONFIG_DIR = Path.home() / '.wellcode'
