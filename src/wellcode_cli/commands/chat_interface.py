@@ -3,9 +3,10 @@ from pathlib import Path
 
 import anthropic
 import rich_click as click
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt
 
 from .. import __version__
 from ..config import get_anthropic_api_key
@@ -18,10 +19,12 @@ from .review import review
 
 console = Console()
 CONFIG_FILE = Path.home() / ".wellcode" / "config.json"
+HISTORY_FILE = Path.home() / ".wellcode" / "command_history"
 
 
 @click.command()
-def chat_interface():
+@click.pass_context
+def chat_interface(ctx):
     """Interactive chat interface for Wellcode"""
     load_config()
 
@@ -44,11 +47,13 @@ def chat_interface():
     if get_anthropic_api_key():
         client = anthropic.Client(api_key=get_anthropic_api_key())
 
+    # Initialize the prompt session
+    session = PromptSession(history=FileHistory(str(HISTORY_FILE)))
+
     while True:
         try:
-            command = Prompt.ask(
-                "\n[bold cyan]What would you like to do?[/] (type 'help' for suggestions)"
-            )
+            console.print("\n[bold cyan]What would you like to do?[/] (type 'help' for suggestions)")
+            command = session.prompt("wellcode> ")
 
             if command.lower() in ["exit", "quit", "q"]:
                 break
