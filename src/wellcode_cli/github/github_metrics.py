@@ -174,6 +174,15 @@ def process_repository_batch(
         repo_metrics.prs_merged_to_main += merged_to_main
         org_metrics.prs_merged_to_main += merged_to_main
 
+        # Track direct merges to main
+        direct_to_main = sum(
+            1 for pr in merged_prs 
+            if pr.base.ref == repo_metrics.default_branch 
+            and pr.head.ref == repo_metrics.default_branch
+        )
+        repo_metrics.direct_merges_to_main += direct_to_main
+        org_metrics.direct_merges_to_main += direct_to_main
+
         # Add contributor tracking
         for pr in relevant_pulls:
             repo_metrics.contributors.add(pr.user.login)

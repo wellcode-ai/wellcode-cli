@@ -388,6 +388,7 @@ class RepositoryMetrics(BaseMetrics):
     prs_created: int = 0
     prs_merged: int = 0
     prs_merged_to_main: int = 0
+    direct_merges_to_main: int = 0
     last_updated: Optional[datetime] = None
 
     def update_teams(self, author_team: str, reviewer_team: str):
@@ -421,6 +422,7 @@ class OrganizationMetrics(BaseMetrics):
     prs_created: int = 0
     prs_merged: int = 0
     prs_merged_to_main: int = 0
+    direct_merges_to_main: int = 0
 
     def get_or_create_repository(
         self, name: str, default_branch: str = "main"
