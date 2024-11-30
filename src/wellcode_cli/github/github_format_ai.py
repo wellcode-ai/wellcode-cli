@@ -18,41 +18,41 @@ console = Console()
 
 
 def format_ai_response(response):
-    # Try to extract content inside <analysis> tags, but proceed even if not found
-    analysis_match = re.search(r"<analysis>(.*?)</analysis>", response, re.DOTALL)
-    analysis_content = analysis_match.group(1) if analysis_match else response
-
-    # Split the content into sections, either by XML-like tags or by line breaks
-    sections = re.findall(r"<(\w+)>(.*?)</\1>", analysis_content, re.DOTALL)
-    if not sections:
-        sections = [
-            ("general", para.strip())
-            for para in analysis_content.split("\n")
-            if para.strip()
-        ]
-
-    for section, content in sections:
-        # Skip efficiency score section as it's handled separately
-        if section in ["efficiency_score", "efficiency_score_justification"]:
-            continue
-
-        # Convert section name to title case and replace underscores with spaces
-        section_title = section.replace("_", " ").title()
-
-        # Format content as markdown and strip XML tags
-        formatted_content = re.sub(r"<[^>]+>", "", content.strip())
-
-        # Create a panel for each section
+    # Extract metrics section first
+    metrics_match = re.search(r"<metrics_extraction>(.*?)</metrics_extraction>", response, re.DOTALL)
+    if metrics_match:
+        metrics_content = metrics_match.group(1).strip()
         console.print(
             Panel(
-                Markdown(formatted_content),
-                title=f"[bold yellow]{section_title}[/]",
+                Markdown(metrics_content),
+                title="[bold yellow]Metrics Extraction[/]",
                 border_style="blue",
                 padding=(1, 2),
             )
         )
 
-    # Extract and display efficiency score and justification
+    # Extract performance evaluation sections
+    performance_sections = {
+        "overall_efficiency": "Overall Efficiency",
+        "strengths": "Strengths",
+        "areas_for_improvement": "Areas for Improvement",
+        "recommendations": "Recommendations"
+    }
+    
+    for section_tag, section_title in performance_sections.items():
+        section_match = re.search(f"<{section_tag}>(.*?)</{section_tag}>", response, re.DOTALL)
+        if section_match:
+            content = section_match.group(1).strip()
+            console.print(
+                Panel(
+                    Markdown(content),
+                    title=f"[bold yellow]{section_title}[/]",
+                    border_style="blue",
+                    padding=(1, 2),
+                )
+            )
+
+    # Handle efficiency score and justification separately
     efficiency_score_match = re.search(
         r"<efficiency_score>(.*?)</efficiency_score>", response, re.DOTALL
     )
@@ -62,46 +62,21 @@ def format_ai_response(response):
         re.DOTALL,
     )
 
-    if efficiency_score_match:
-        score = efficiency_score_match.group(1).strip()
-        justification = ""
+    if efficiency_score_match or efficiency_justification_match:
+        content = []
+        if efficiency_score_match:
+            content.append(f"[bold white]{efficiency_score_match.group(1).strip()}/10[/]")
         if efficiency_justification_match:
-            justification = re.sub(
-                r"<[^>]+>", "", efficiency_justification_match.group(1).strip()
-            )
+            content.append(f"\n\n{efficiency_justification_match.group(1).strip()}")
 
         console.print(
             Panel(
-                f"[bold white]{score}/10[/]\n\n{justification}",
+                "\n".join(content),
                 title="[bold magenta]Efficiency Score & Justification[/]",
                 border_style="magenta",
                 padding=(1, 2),
             )
         )
-    else:
-        # Try to find a line that looks like an efficiency score
-        score_line = re.search(
-            r"efficiency.*?score.*?(\d+(/|\s*out of\s*)10)", response, re.IGNORECASE
-        )
-        justification_line = re.search(
-            r"justification:?\s*(.*)", response, re.IGNORECASE
-        )
-
-        if score_line or justification_line:
-            content = []
-            if score_line:
-                content.append(f"[bold white]{score_line.group(1)}[/]")
-            if justification_line:
-                content.append(f"\n{justification_line.group(1)}")
-
-            console.print(
-                Panel(
-                    "\n".join(content),
-                    title="[bold magenta]Efficiency Score & Justification[/]",
-                    border_style="magenta",
-                    padding=(1, 2),
-                )
-            )
 
 
 def get_ai_analysis(all_metrics):
