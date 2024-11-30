@@ -52,7 +52,9 @@ def chat_interface(ctx):
 
     while True:
         try:
-            console.print("\n[bold cyan]What would you like to do?[/] (type 'help' for suggestions)")
+            console.print(
+                "\n[bold cyan]What would you like to do?[/] (type 'help' for suggestions)"
+            )
             command = session.prompt("wellcode> ")
 
             if command.lower() in ["exit", "quit", "q"]:
