@@ -1,6 +1,8 @@
 import json
 import time
+import webbrowser
 
+import pyperclip
 import requests
 from rich.console import Console
 
@@ -19,10 +21,6 @@ def request_device_code(client_id: str):
         timeout=30,
     )
     data = response.json()
-
-    # Debug the response
-    console.print(f"\nDebug - Device code response: {data}")
-
     return data
 
 
@@ -68,11 +66,16 @@ def authenticate_user():
     # Request device code
     device_data = request_device_code(WELLCODE_APP["CLIENT_ID"])
 
-    console.print(f"\nDebug - Device data: {device_data}")
     # Show instructions to user with proper formatting
     console.print("\n[bold cyan]GitHub Authentication Required[/]")
     console.print("\nPlease visit: [link]https://github.com/login/device[/]")
-    console.print(f"And enter code: [bold yellow]{device_data['user_code']}[/]")
+    github_device_url = "https://github.com/login/device"
+    webbrowser.open(github_device_url)
+    console.print(f"\nOpening: [link]{github_device_url}[/]")
+    pyperclip.copy(device_data["user_code"])
+    console.print(
+        f"And enter code: [bold yellow]{device_data['user_code']}[/] (copied to clipboard)"
+    )
     console.print("\nWaiting for authentication...")
 
     # Poll for token
@@ -96,3 +99,9 @@ def get_user_token():
             data = json.load(f)
             return data["access_token"]
     return authenticate_user()
+
+
+def clear_user_token():
+    """Clear cached token"""
+    if TOKEN_FILE.exists():
+        TOKEN_FILE.unlink()

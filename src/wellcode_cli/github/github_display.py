@@ -6,17 +6,23 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from wellcode_cli.utils import load_config
 
-def display_github_metrics(org_metrics):
+
+def display_github_metrics(metrics):
     """Display GitHub metrics with a modern UI using Rich components."""
     console = Console()
+    config = load_config() or {}
+    mode = config.get("GITHUB_MODE", "organization")
 
-    # Header with organization info and time range
+    # Header with user/org info and time range
     now = datetime.now(timezone.utc)
+    entity_type = "User" if mode == "personal" else "Organization"
+
     console.print(
         Panel(
             "[bold cyan]GitHub Engineering Analytics[/]\n"
-            + f"[dim]Organization: {org_metrics.name}[/]\n"
+            + f"[dim]{entity_type}: {metrics.name}[/]\n"
             + f"[dim]Report Generated: {now.strftime('%Y-%m-%d %H:%M')} UTC[/]",
             box=box.ROUNDED,
             style="cyan",
@@ -24,14 +30,10 @@ def display_github_metrics(org_metrics):
     )
 
     # 1. Core PR Metrics with visual indicators
-    total_prs_created = sum(
-        repo.prs_created for repo in org_metrics.repositories.values()
-    )
-    total_prs_merged = sum(
-        repo.prs_merged for repo in org_metrics.repositories.values()
-    )
+    total_prs_created = sum(repo.prs_created for repo in metrics.repositories.values())
+    total_prs_merged = sum(repo.prs_merged for repo in metrics.repositories.values())
     total_prs_to_main = sum(
-        repo.prs_merged_to_main for repo in org_metrics.repositories.values()
+        repo.prs_merged_to_main for repo in metrics.repositories.values()
     )
 
     merge_rate = (
@@ -63,7 +65,7 @@ def display_github_metrics(org_metrics):
     repo_table.add_column("Teams", justify="right")
     repo_table.add_column("Last Activity", justify="right")
 
-    for repo_name, repo in org_metrics.repositories.items():
+    for repo_name, repo in metrics.repositories.items():
         last_activity = (
             repo.last_updated.strftime("%Y-%m-%d") if repo.last_updated else "N/A"
         )
@@ -77,19 +79,19 @@ def display_github_metrics(org_metrics):
 
     console.print(repo_table)
 
-    # 3. Team Performance (New Section)
-    if org_metrics.teams:
+    # Only show team performance in organization mode
+    if mode == "organization" and metrics.teams:
         team_stats = {}
-        for team_name, members in org_metrics.teams.items():
+        for team_name, members in metrics.teams.items():
             team_prs = sum(
-                org_metrics.users[user].prs_created
+                metrics.users[user].prs_created
                 for user in members
-                if user in org_metrics.users
+                if user in metrics.users
             )
             team_reviews = sum(
-                org_metrics.users[user].review_metrics.reviews_performed
+                metrics.users[user].review_metrics.reviews_performed
                 for user in members
-                if user in org_metrics.users
+                if user in metrics.users
             )
             team_stats[team_name] = (team_prs, team_reviews)
 
@@ -105,7 +107,7 @@ def display_github_metrics(org_metrics):
         )
 
     # 4. Review Quality Metrics (Enhanced)
-    review = org_metrics.review_metrics
+    review = metrics.review_metrics
     avg_review_time = (
         statistics.mean(review.time_to_first_review)
         if review.time_to_first_review
@@ -142,7 +144,7 @@ def display_github_metrics(org_metrics):
     )
 
     # 3. Code Quality - Enhanced
-    quality = org_metrics.code_metrics
+    quality = metrics.code_metrics
     avg_changes = (
         statistics.mean(quality.changes_per_pr) if quality.changes_per_pr else 0
     )
@@ -164,7 +166,7 @@ def display_github_metrics(org_metrics):
     )
 
     # 4. Team Collaboration - Enhanced
-    collab = org_metrics.collaboration_metrics
+    collab = metrics.collaboration_metrics
     review_comments = list(collab.review_comments_per_pr.values())
     avg_comments = statistics.mean(review_comments) if review_comments else 0
     console.print(
@@ -181,7 +183,7 @@ def display_github_metrics(org_metrics):
     )
 
     # 6. Time Metrics - Enhanced (New Section)
-    time = org_metrics.time_metrics
+    time = metrics.time_metrics
     avg_merge_time = statistics.mean(time.time_to_merge) if time.time_to_merge else 0
     avg_lead_time = statistics.mean(time.lead_times) if time.lead_times else 0
     avg_cycle_time = statistics.mean(time.cycle_time) if time.cycle_time else 0
@@ -197,7 +199,7 @@ def display_github_metrics(org_metrics):
     )
 
     # 7. System Health - Enhanced
-    bottleneck = org_metrics.bottleneck_metrics
+    bottleneck = metrics.bottleneck_metrics
     avg_wait = (
         statistics.mean(bottleneck.review_wait_times)
         if bottleneck.review_wait_times

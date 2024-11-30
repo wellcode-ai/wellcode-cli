@@ -64,14 +64,21 @@ def review(start_date, end_date, user, team):
         config()
         console.print()  # Add a blank line for spacing
 
-    # Load configuration and validate GitHub App installation
+    # Load configuration and get mode
     load_config()
-    org_name = get_github_org()
+    github_client = GithubClient()
+    mode = github_client.get_config().get("GITHUB_MODE", "organization")
 
-    if not org_name:
-        console.print("[yellow]⚠️  GitHub organization not configured[/]")
-        console.print("Please run: wellcode-cli config")
-        return
+    # Get entity name based on mode
+    if mode == "organization":
+        entity_name = get_github_org()
+        if not entity_name:
+            console.print("[yellow]⚠️  GitHub organization not configured[/]")
+            console.print("Please run: wellcode-cli config")
+            return
+    else:
+        # In personal mode, we'll get the user's login during metrics collection
+        entity_name = None
 
     console.print(
         Panel.fit(
@@ -92,16 +99,18 @@ def review(start_date, end_date, user, team):
 
     with console.status("[bold green]Fetching metrics...") as status:
         # GitHub metrics
-        github_client = GithubClient()
-        if github_client._check_app_installation(org_name):
-            status.update("Fetching GitHub metrics...")
-            metrics = get_github_metrics(org_name, start_date, end_date, user, team)
-            if metrics:
-                all_metrics["github"] = metrics
-                display_github_metrics(metrics)
+        status.update("Fetching GitHub metrics...")
+        metrics = get_github_metrics(entity_name, start_date, end_date, user, team)
+
+        if metrics:
+            all_metrics["github"] = metrics
+            display_github_metrics(metrics)
         else:
-            console.print("[yellow]⚠️  GitHub App not installed[/]")
-            console.print(f"Please install the app at: {WELLCODE_APP['APP_URL']}")
+            if mode == "organization":
+                console.print("[yellow]⚠️  GitHub App not installed[/]")
+                console.print(f"Please install the app at: {WELLCODE_APP['APP_URL']}")
+            else:
+                console.print("[red]Error: Failed to fetch GitHub metrics[/]")
 
         # Linear metrics
         if get_linear_api_key():

@@ -123,7 +123,7 @@ def load_config():
             console.print(f"[yellow]Warning: Error reading config file: {e}[/]")
 
     # Check for required GitHub organization
-    if not config.get("GITHUB_ORG"):
+    if not config.get("GITHUB_ORG") and config.get("GITHUB_MODE") == "organization":
         console.print("[yellow]Warning: GitHub organization not configured[/]")
         console.print("Please run: wellcode-cli config")
 
@@ -133,7 +133,7 @@ def load_config():
 def validate_github_config():
     """Validate GitHub configuration"""
     config = load_config()
-    if not config.get("GITHUB_ORG"):
+    if not config.get("GITHUB_ORG") and config.get("GITHUB_MODE") == "organization":
         raise ValueError(
             "GitHub organization not configured. Please run: wellcode-cli config"
         )

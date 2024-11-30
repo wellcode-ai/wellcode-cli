@@ -48,8 +48,14 @@ class GithubClient:
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
-                cls._instance._local = threading.local()
             return cls._instance
+
+    def __init__(self):
+        if not hasattr(self, "_initialized"):
+            self._github = None
+            self._config = load_config() or {}
+            self._local = threading.local()
+            self._initialized = True
 
     def _ensure_token(self):
         """Ensure we have a valid token"""
@@ -95,31 +101,48 @@ class GithubClient:
 
     @property
     def client(self):
-        """Get the GitHub client, ensuring we have a token and app installation"""
+        """Get the GitHub client, ensuring we have a token"""
         if not hasattr(self._local, "github"):
-            config = load_config()
-            org_name = config.get("GITHUB_ORG")
-
-            if not org_name:
-                console.print("[red]Error: Organization name not configured[/]")
-                console.print("Please run: wellcode-cli config")
-                raise ValueError("Organization name required")
-
             # Ensure we have a token
             self._ensure_token()
 
-            # Check if the GitHub App is installed
-            if not self._check_app_installation(org_name):
-                console.print("[red]Error: Wellcode GitHub App not installed[/]")
-                console.print(f"Please install the app at: {WELLCODE_APP['APP_URL']}")
-                console.print(f"Select organization: {org_name}")
-                raise ValueError("GitHub App installation required")
+            # Get mode from config - reload to ensure we have latest
+            self._config = load_config() or {}
+            mode = self._config.get("GITHUB_MODE", "personal")
+
+            if mode == "organization":
+                org_name = self._config.get("GITHUB_ORG")
+                if not org_name:
+                    console.print("[red]Error: Organization name not configured[/]")
+                    console.print("Please run: wellcode-cli config")
+                    return None
+
+                # Check if the GitHub App is installed for org mode
+                if not self._check_app_installation(org_name):
+                    console.print("[red]Error: Wellcode GitHub App not installed[/]")
+                    console.print(
+                        f"Please install the app at: {WELLCODE_APP['APP_URL']}"
+                    )
+                    console.print(f"Select organization: {org_name}")
+                    return None
 
             # Create GitHub client with user token
             self._local.github = Github(self._local.token)
             self._local.github._Github__requester._Requester__session = GITHUB_SESSION
 
         return self._local.github
+
+    def get_config(self):
+        """Get the configuration settings"""
+        return self._config
+
+    def reload_config(self):
+        """Force reload of configuration and reset client state"""
+        self._config = load_config() or {}
+        if hasattr(self._local, "github"):
+            delattr(self._local, "github")
+        if hasattr(self._local, "token"):
+            delattr(self._local, "token")
 
 
 def get_github_client():
