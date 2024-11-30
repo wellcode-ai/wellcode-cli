@@ -48,31 +48,55 @@ def safe_github_call(func):
 
 @decorators.handle_github_errors()
 def get_github_metrics(
-    org_name: str, start_date, end_date, user_filter=None, team_filter=None
+    org_or_user: str, start_date, end_date, user_filter=None, team_filter=None
 ) -> OrganizationMetrics:
     """Main function with proper connection handling"""
     try:
         github_client = GithubClient()
-
-        # Validate GitHub App installation
-        if not github_client._check_app_installation(org_name):
-            console.print("[red]Error: GitHub App not installed[/]")
-            console.print(f"Please install the app at: {WELLCODE_APP['APP_URL']}")
-            return None
+        mode = github_client.get_config().get("GITHUB_MODE", "organization")
 
         with connection_semaphore:
-            org = github_client.client.get_organization(org_name)
-            repo_future = MAIN_EXECUTOR.submit(lambda: list(org.get_repos()))
-            team_future = (
-                MAIN_EXECUTOR.submit(get_team_members, org, team_filter)
-                if team_filter
-                else None
-            )
+            if mode == "organization":
+                # Verify organization access first
+                try:
+                    org = github_client.client.get_organization(org_or_user)
+                    _ = org.login  # Test access
+                except Exception as e:
+                    console.print(
+                        f"[red]Error: Cannot access organization {org_or_user}[/]"
+                    )
+                    console.print("[yellow]Please verify:")
+                    console.print("1. You have the correct organization name")
+                    console.print("2. You have organization membership")
+                    console.print("3. Your token has 'read:org' scope")
+                    logging.error(f"Organization access error: {str(e)}")
+                    return None
+
+                # Then check app installation
+                if not github_client._check_app_installation(org_or_user):
+                    console.print("[red]Error: GitHub App not installed[/]")
+                    console.print(
+                        f"Please install the app at: {WELLCODE_APP['APP_URL']}"
+                    )
+                    console.print("And select your organization during installation")
+                    return None
+
+                repo_future = MAIN_EXECUTOR.submit(lambda: list(org.get_repos()))
+            else:
+                # Personal mode - use authenticated user
+                user = github_client.client.get_user()
+                repo_future = MAIN_EXECUTOR.submit(lambda: list(user.get_repos()))
+                org_or_user = user.login
 
             repos = repo_future.result()
-            team_members = team_future.result() if team_filter else set()
 
-        org_metrics = OrganizationMetrics(name=org_name)
+            # Only attempt team operations in organization mode
+            team_members = set()
+            if mode == "organization" and team_filter:
+                team_future = MAIN_EXECUTOR.submit(get_team_members, org, team_filter)
+                team_members = team_future.result()
+
+        metrics = OrganizationMetrics(name=org_or_user)
 
         with Progress(
             SpinnerColumn(),
@@ -87,7 +111,7 @@ def get_github_metrics(
                 MAIN_EXECUTOR.submit(
                     process_repository_batch,
                     repo,
-                    org_metrics,
+                    metrics,
                     start_date,
                     end_date,
                     user_filter,
@@ -104,10 +128,11 @@ def get_github_metrics(
                 except Exception as e:
                     logging.error(f"Error processing repository: {str(e)}")
 
-        return org_metrics
+        return metrics
+
     except Exception as e:
         logging.error(f"Error getting GitHub metrics: {str(e)}")
-        return None
+        raise
 
 
 def process_repository_batch(
@@ -256,6 +281,7 @@ def update_code_metrics(pr, repo_metrics, org_metrics):
     """Update code metrics for a PR"""
     org_metrics.code_metrics.update_from_pr(pr)
     repo_metrics.code_metrics.update_from_pr(pr)
+    repo_metrics.code_metrics.update_from_pr(pr)
 
 
 def update_review_metrics(pr, pr_data, repo_metrics, org_metrics):
@@ -263,33 +289,33 @@ def update_review_metrics(pr, pr_data, repo_metrics, org_metrics):
     reviews = pr_data["reviews"]
     review_comments = pr_data["review_comments"]
     issue_comments = pr_data["issue_comments"]
-
+    issue_comments = pr_data["issue_comments"]
     # Update PR author's received comments
     org_metrics.review_metrics.review_comments_received += len(review_comments)
-
+    org_metrics.review_metrics.review_comments_received += len(review_comments)
     # Process all comments
     for comment in review_comments + issue_comments:
         if not comment.user:
             continue
-
+            continue
         commenter = comment.user.login
         commenter_metrics = org_metrics.get_or_create_user(commenter)
-
+        commenter_metrics = org_metrics.get_or_create_user(commenter)
         # Update comment counts
         commenter_metrics.review_metrics.review_comments_given += 1
         repo_metrics.review_metrics.review_comments_given += 1
         org_metrics.review_metrics.review_comments_given += 1
-
+        org_metrics.review_metrics.review_comments_given += 1
         # Update collaboration metrics
         commenter_metrics.collaboration_metrics.update_from_comments(
             [comment], pr.number
         )
         repo_metrics.collaboration_metrics.update_from_comments([comment], pr.number)
         org_metrics.collaboration_metrics.update_from_comments([comment], pr.number)
-
+        org_metrics.collaboration_metrics.update_from_comments([comment], pr.number)
     # Process reviews
     process_reviews(pr, reviews, repo_metrics, org_metrics)
-
+    process_reviews(pr, reviews, repo_metrics, org_metrics)
     if reviews:
         first_review = min(reviews, key=lambda r: r.submitted_at)
         wait_time = (
@@ -297,12 +323,14 @@ def update_review_metrics(pr, pr_data, repo_metrics, org_metrics):
         ).total_seconds() / 60  # Convert to minutes
         org_metrics.bottleneck_metrics.review_wait_times.append(wait_time)
         repo_metrics.bottleneck_metrics.review_wait_times.append(wait_time)
-
+        repo_metrics.bottleneck_metrics.review_wait_times.append(wait_time)
     for review in reviews:
         if review.submitted_at and pr.created_at:
             response_time = (review.submitted_at - pr.created_at).total_seconds() / 60
             org_metrics.bottleneck_metrics.review_response_times.append(response_time)
             repo_metrics.bottleneck_metrics.review_response_times.append(response_time)
+            repo_metrics.bottleneck_metrics.review_response_times.append(response_time)
+        org_metrics.bottleneck_metrics.review_wait_times.append(wait_time)
 
 
 def update_time_metrics(pr, commits, repo_metrics, org_metrics, start_date, end_date):
@@ -312,12 +340,12 @@ def update_time_metrics(pr, commits, repo_metrics, org_metrics, start_date, end_
             # Convert all times to datetime with timezone
             merge_time = ensure_datetime(pr.merged_at)
             created_time = ensure_datetime(pr.created_at)
-
+            created_time = ensure_datetime(pr.created_at)
             # Calculate time to merge in hours
             merge_duration = (merge_time - created_time).total_seconds() / 3600
             repo_metrics.time_metrics.time_to_merge.append(merge_duration)
             org_metrics.time_metrics.time_to_merge.append(merge_duration)
-
+            org_metrics.time_metrics.time_to_merge.append(merge_duration)
             # Calculate lead time if we have commits
             if commits and len(commits) > 0:
                 first_commit = min(
@@ -327,12 +355,12 @@ def update_time_metrics(pr, commits, repo_metrics, org_metrics, start_date, end_
                 lead_time = (merge_time - first_commit_date).total_seconds() / 3600
                 repo_metrics.time_metrics.lead_times.append(lead_time)
                 org_metrics.time_metrics.lead_times.append(lead_time)
-
+                org_metrics.time_metrics.lead_times.append(lead_time)
                 # Calculate cycle time
                 cycle_time = (merge_time - first_commit_date).total_seconds() / 3600
                 repo_metrics.time_metrics.cycle_time.append(cycle_time)
                 org_metrics.time_metrics.cycle_time.append(cycle_time)
-
+                org_metrics.time_metrics.cycle_time.append(cycle_time)
             # Update merge distribution
             if merge_time.weekday() >= 5:  # Weekend
                 repo_metrics.time_metrics.merge_distribution["weekends"] += 1
@@ -343,14 +371,13 @@ def update_time_metrics(pr, commits, repo_metrics, org_metrics, start_date, end_
             else:  # After hours
                 repo_metrics.time_metrics.merge_distribution["after_hours"] += 1
                 org_metrics.time_metrics.merge_distribution["after_hours"] += 1
-
+                org_metrics.time_metrics.merge_distribution["after_hours"] += 1
             # Calculate deployment frequency with safety check
             if pr.base.ref == repo_metrics.default_branch:
                 one_day_seconds = 24 * 60 * 60
                 days_in_period = max(
                     (end_date - start_date).total_seconds() / one_day_seconds, 1
                 )  # Ensure minimum 1 day
-
                 # Add safety checks for division
                 if days_in_period > 0:
                     if repo_metrics.prs_merged_to_main > 0:
@@ -400,7 +427,7 @@ def update_collaboration_metrics(pr, reviews, repo_metrics, org_metrics):
     if reviews:
         repo_metrics.collaboration_metrics.self_merges += 1
         org_metrics.collaboration_metrics.self_merges += 1
-
+        org_metrics.collaboration_metrics.self_merges += 1
     # Update collaboration metrics at all levels
     if (
         reviews
@@ -414,7 +441,6 @@ def update_collaboration_metrics(pr, reviews, repo_metrics, org_metrics):
         org_metrics.collaboration_metrics.update_from_reviews(
             reviews, pr, author_team=pr.user.team, reviewer_team=reviews[0].user.team
         )
-
         # Update team reviews
         if reviews[0].user.team and pr.user.team:
             if reviews[0].user.team == pr.user.team:
@@ -426,26 +452,23 @@ def update_collaboration_metrics(pr, reviews, repo_metrics, org_metrics):
         else:
             repo_metrics.collaboration_metrics.external_reviews += 1
             org_metrics.collaboration_metrics.external_reviews += 1
-
+            org_metrics.collaboration_metrics.external_reviews += 1
     # Calculate review participation rate for repository
     repo_total_reviews = (
         repo_metrics.collaboration_metrics.team_reviews
         + repo_metrics.collaboration_metrics.cross_team_reviews
         + repo_metrics.collaboration_metrics.external_reviews
     )
-
     if repo_metrics.prs_created > 0:
         repo_metrics.collaboration_metrics.review_participation_rate = (
             repo_total_reviews / repo_metrics.prs_created
         )
-
     # Calculate review participation rate for organization
     org_total_reviews = (
         org_metrics.collaboration_metrics.team_reviews
         + org_metrics.collaboration_metrics.cross_team_reviews
         + org_metrics.collaboration_metrics.external_reviews
     )
-
     # Fix: Use prs_created instead of total_prs
     if org_metrics.prs_created > 0:  # Changed from total_prs to prs_created
         org_metrics.collaboration_metrics.review_participation_rate = (
@@ -457,11 +480,16 @@ def update_collaboration_metrics(pr, reviews, repo_metrics, org_metrics):
 console = Console()
 
 
-def get_team_members(org, team_filter: str) -> set:
+def get_team_members(org_or_user, team_filter: str) -> set:
     """Get team members for a specific team"""
     team_members = set()
+
+    # Skip team lookup for personal mode
+    if not hasattr(org_or_user, "get_teams"):
+        return team_members
+
     try:
-        teams = list(org.get_teams())
+        teams = list(org_or_user.get_teams())
         team = next(
             (
                 t

@@ -18,3 +18,4 @@ types-setuptools
 types-requests-oauthlib
 types-urllib3
 pre-commit
+pyperclip
