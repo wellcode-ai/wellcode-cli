@@ -19,7 +19,9 @@ console = Console()
 
 def format_ai_response(response):
     # Extract metrics section first
-    metrics_match = re.search(r"<metrics_extraction>(.*?)</metrics_extraction>", response, re.DOTALL)
+    metrics_match = re.search(
+        r"<metrics_extraction>(.*?)</metrics_extraction>", response, re.DOTALL
+    )
     if metrics_match:
         metrics_content = metrics_match.group(1).strip()
         console.print(
@@ -36,11 +38,13 @@ def format_ai_response(response):
         "overall_efficiency": "Overall Efficiency",
         "strengths": "Strengths",
         "areas_for_improvement": "Areas for Improvement",
-        "recommendations": "Recommendations"
+        "recommendations": "Recommendations",
     }
-    
+
     for section_tag, section_title in performance_sections.items():
-        section_match = re.search(f"<{section_tag}>(.*?)</{section_tag}>", response, re.DOTALL)
+        section_match = re.search(
+            f"<{section_tag}>(.*?)</{section_tag}>", response, re.DOTALL
+        )
         if section_match:
             content = section_match.group(1).strip()
             console.print(
@@ -65,7 +69,9 @@ def format_ai_response(response):
     if efficiency_score_match or efficiency_justification_match:
         content = []
         if efficiency_score_match:
-            content.append(f"[bold white]{efficiency_score_match.group(1).strip()}/10[/]")
+            content.append(
+                f"[bold white]{efficiency_score_match.group(1).strip()}/10[/]"
+            )
         if efficiency_justification_match:
             content.append(f"\n\n{efficiency_justification_match.group(1).strip()}")
 

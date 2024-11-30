@@ -176,8 +176,9 @@ def process_repository_batch(
 
         # Track direct merges to main
         direct_to_main = sum(
-            1 for pr in merged_prs 
-            if pr.base.ref == repo_metrics.default_branch 
+            1
+            for pr in merged_prs
+            if pr.base.ref == repo_metrics.default_branch
             and pr.head.ref == repo_metrics.default_branch
         )
         repo_metrics.direct_merges_to_main += direct_to_main
