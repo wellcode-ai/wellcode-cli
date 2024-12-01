@@ -386,7 +386,6 @@ def update_time_metrics(pr, commits, repo_metrics, org_metrics, start_date, end_
 
                 # Add author metrics
                 author_metrics.time_metrics.lead_times.append(lead_time)
-
                 repo_metrics.time_metrics.lead_times.append(lead_time)
                 org_metrics.time_metrics.lead_times.append(lead_time)
                 # Calculate cycle time
@@ -394,29 +393,25 @@ def update_time_metrics(pr, commits, repo_metrics, org_metrics, start_date, end_
 
                 # Add author metrics
                 author_metrics.time_metrics.cycle_time.append(cycle_time)
-
                 repo_metrics.time_metrics.cycle_time.append(cycle_time)
                 org_metrics.time_metrics.cycle_time.append(cycle_time)
             # Update merge distribution
             if merge_time.weekday() >= 5:  # Weekend
                 # Add author metrics
                 author_metrics.time_metrics.merge_distribution["weekends"] += 1
-
                 repo_metrics.time_metrics.merge_distribution["weekends"] += 1
                 org_metrics.time_metrics.merge_distribution["weekends"] += 1
             elif 9 <= merge_time.hour < 17:  # Business hours
                 # Add author metrics
                 author_metrics.time_metrics.merge_distribution["business_hours"] += 1
-
                 repo_metrics.time_metrics.merge_distribution["business_hours"] += 1
                 org_metrics.time_metrics.merge_distribution["business_hours"] += 1
             else:  # After hours
                 # Add author metrics
                 author_metrics.time_metrics.merge_distribution["after_hours"] += 1
-
                 repo_metrics.time_metrics.merge_distribution["after_hours"] += 1
                 org_metrics.time_metrics.merge_distribution["after_hours"] += 1
-                org_metrics.time_metrics.merge_distribution["after_hours"] += 1
+                
             # Calculate deployment frequency with safety check
             if pr.base.ref == repo_metrics.default_branch:
                 one_day_seconds = 24 * 60 * 60
