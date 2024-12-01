@@ -221,6 +221,12 @@ def process_repository_batch(
 def process_pr(pr, repo_metrics, org_metrics, start_date, end_date):
     """Process a single PR with optimized data fetching"""
     try:
+        logging.info(f"Starting to process PR #{pr.number} by {pr.user.login}")
+
+        # Add PR author to contributors and create user metrics
+        repo_metrics.contributors.add(pr.user.login)
+        org_metrics.get_or_create_user(pr.user.login)
+
         pr_data = collect_pr_data(pr)
 
         futures = [
@@ -289,9 +295,13 @@ def collect_pr_data(pr):
 
 def update_code_metrics(pr, repo_metrics, org_metrics):
     """Update code metrics for a PR"""
+    # Update organization and repository metrics
     org_metrics.code_metrics.update_from_pr(pr)
     repo_metrics.code_metrics.update_from_pr(pr)
-    repo_metrics.code_metrics.update_from_pr(pr)
+
+    # Update author's code metrics
+    author_metrics = org_metrics.get_or_create_user(pr.user.login)
+    author_metrics.code_metrics.update_from_pr(pr)
 
 
 def update_review_metrics(pr, pr_data, repo_metrics, org_metrics):
@@ -299,22 +309,23 @@ def update_review_metrics(pr, pr_data, repo_metrics, org_metrics):
     reviews = pr_data["reviews"]
     review_comments = pr_data["review_comments"]
     issue_comments = pr_data["issue_comments"]
-    issue_comments = pr_data["issue_comments"]
+
+    # Get author metrics and update received comments
+    author_metrics = org_metrics.get_or_create_user(pr.user.login)
+    author_metrics.review_metrics.review_comments_received += len(review_comments)
+
     # Update PR author's received comments
-    org_metrics.review_metrics.review_comments_received += len(review_comments)
     org_metrics.review_metrics.review_comments_received += len(review_comments)
     # Process all comments
     for comment in review_comments + issue_comments:
         if not comment.user:
             continue
-            continue
+
         commenter = comment.user.login
-        commenter_metrics = org_metrics.get_or_create_user(commenter)
         commenter_metrics = org_metrics.get_or_create_user(commenter)
         # Update comment counts
         commenter_metrics.review_metrics.review_comments_given += 1
         repo_metrics.review_metrics.review_comments_given += 1
-        org_metrics.review_metrics.review_comments_given += 1
         org_metrics.review_metrics.review_comments_given += 1
         # Update collaboration metrics
         commenter_metrics.collaboration_metrics.update_from_comments(
@@ -322,23 +333,27 @@ def update_review_metrics(pr, pr_data, repo_metrics, org_metrics):
         )
         repo_metrics.collaboration_metrics.update_from_comments([comment], pr.number)
         org_metrics.collaboration_metrics.update_from_comments([comment], pr.number)
-        org_metrics.collaboration_metrics.update_from_comments([comment], pr.number)
     # Process reviews
-    process_reviews(pr, reviews, repo_metrics, org_metrics)
     process_reviews(pr, reviews, repo_metrics, org_metrics)
     if reviews:
         first_review = min(reviews, key=lambda r: r.submitted_at)
         wait_time = (
             first_review.submitted_at - pr.created_at
         ).total_seconds() / 60  # Convert to minutes
+
+        # Add to author metrics
+        author_metrics.review_metrics.review_wait_times.append(wait_time)
+
         org_metrics.bottleneck_metrics.review_wait_times.append(wait_time)
-        repo_metrics.bottleneck_metrics.review_wait_times.append(wait_time)
         repo_metrics.bottleneck_metrics.review_wait_times.append(wait_time)
     for review in reviews:
         if review.submitted_at and pr.created_at:
             response_time = (review.submitted_at - pr.created_at).total_seconds() / 60
+
+            # Add to author metrics
+            author_metrics.review_metrics.time_to_first_review.append(response_time)
+
             org_metrics.bottleneck_metrics.review_response_times.append(response_time)
-            repo_metrics.bottleneck_metrics.review_response_times.append(response_time)
             repo_metrics.bottleneck_metrics.review_response_times.append(response_time)
         org_metrics.bottleneck_metrics.review_wait_times.append(wait_time)
 
@@ -347,14 +362,19 @@ def update_time_metrics(pr, commits, repo_metrics, org_metrics, start_date, end_
     """Update time metrics for a PR"""
     try:
         if pr.merged_at:
+            # Get author metrics
+            author_metrics = org_metrics.get_or_create_user(pr.user.login)
+
             # Convert all times to datetime with timezone
             merge_time = ensure_datetime(pr.merged_at)
             created_time = ensure_datetime(pr.created_at)
-            created_time = ensure_datetime(pr.created_at)
             # Calculate time to merge in hours
             merge_duration = (merge_time - created_time).total_seconds() / 3600
+
+            # Add author metrics
+            author_metrics.time_metrics.time_to_merge.append(merge_duration)
+
             repo_metrics.time_metrics.time_to_merge.append(merge_duration)
-            org_metrics.time_metrics.time_to_merge.append(merge_duration)
             org_metrics.time_metrics.time_to_merge.append(merge_duration)
             # Calculate lead time if we have commits
             if commits and len(commits) > 0:
@@ -363,22 +383,37 @@ def update_time_metrics(pr, commits, repo_metrics, org_metrics, start_date, end_
                 )
                 first_commit_date = ensure_datetime(first_commit.commit.author.date)
                 lead_time = (merge_time - first_commit_date).total_seconds() / 3600
+
+                # Add author metrics
+                author_metrics.time_metrics.lead_times.append(lead_time)
+
                 repo_metrics.time_metrics.lead_times.append(lead_time)
-                org_metrics.time_metrics.lead_times.append(lead_time)
                 org_metrics.time_metrics.lead_times.append(lead_time)
                 # Calculate cycle time
                 cycle_time = (merge_time - first_commit_date).total_seconds() / 3600
+
+                # Add author metrics
+                author_metrics.time_metrics.cycle_time.append(cycle_time)
+
                 repo_metrics.time_metrics.cycle_time.append(cycle_time)
-                org_metrics.time_metrics.cycle_time.append(cycle_time)
                 org_metrics.time_metrics.cycle_time.append(cycle_time)
             # Update merge distribution
             if merge_time.weekday() >= 5:  # Weekend
+                # Add author metrics
+                author_metrics.time_metrics.merge_distribution["weekends"] += 1
+
                 repo_metrics.time_metrics.merge_distribution["weekends"] += 1
                 org_metrics.time_metrics.merge_distribution["weekends"] += 1
             elif 9 <= merge_time.hour < 17:  # Business hours
+                # Add author metrics
+                author_metrics.time_metrics.merge_distribution["business_hours"] += 1
+
                 repo_metrics.time_metrics.merge_distribution["business_hours"] += 1
                 org_metrics.time_metrics.merge_distribution["business_hours"] += 1
             else:  # After hours
+                # Add author metrics
+                author_metrics.time_metrics.merge_distribution["after_hours"] += 1
+
                 repo_metrics.time_metrics.merge_distribution["after_hours"] += 1
                 org_metrics.time_metrics.merge_distribution["after_hours"] += 1
                 org_metrics.time_metrics.merge_distribution["after_hours"] += 1
@@ -433,11 +468,15 @@ def process_reviews(pr, reviews, repo_metrics, org_metrics):
 
 def update_collaboration_metrics(pr, reviews, repo_metrics, org_metrics):
     """Update collaboration metrics including participation rate"""
-    # Process reviews for collaboration
-    if reviews:
+    # Check for self-merges by comparing PR author with merger
+    if pr.merged and pr.merged_by and pr.user.login == pr.merged_by.login:
         repo_metrics.collaboration_metrics.self_merges += 1
         org_metrics.collaboration_metrics.self_merges += 1
-        org_metrics.collaboration_metrics.self_merges += 1
+
+        # Update author's metrics
+        author_metrics = org_metrics.get_or_create_user(pr.user.login)
+        author_metrics.collaboration_metrics.self_merges += 1
+
     # Update collaboration metrics at all levels
     if (
         reviews
@@ -461,7 +500,6 @@ def update_collaboration_metrics(pr, reviews, repo_metrics, org_metrics):
                 org_metrics.collaboration_metrics.cross_team_reviews += 1
         else:
             repo_metrics.collaboration_metrics.external_reviews += 1
-            org_metrics.collaboration_metrics.external_reviews += 1
             org_metrics.collaboration_metrics.external_reviews += 1
     # Calculate review participation rate for repository
     repo_total_reviews = (

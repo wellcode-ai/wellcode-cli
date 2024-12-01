@@ -477,45 +477,6 @@ class OrganizationMetrics(BaseMetrics):
             all_contributors.update(repo.contributors)
         return all_contributors
 
-    def aggregate_metrics(self):
-        """Aggregate metrics from all repositories"""
-        for repo in self.repositories.values():
-            # Code metrics
-            self.code_metrics.total_additions += repo.code_metrics.total_additions
-            self.code_metrics.total_deletions += repo.code_metrics.total_deletions
-            self.code_metrics.changes_per_pr.extend(repo.code_metrics.changes_per_pr)
-            self.code_metrics.files_changed.extend(repo.code_metrics.files_changed)
-            self.code_metrics.commits_count.extend(repo.code_metrics.commits_count)
-            self.code_metrics.reverts += repo.code_metrics.reverts
-            self.code_metrics.hotfixes += repo.code_metrics.hotfixes
-
-            # Review metrics
-            self.review_metrics.reviews_performed += (
-                repo.review_metrics.reviews_performed
-            )
-            self.review_metrics.blocking_reviews_given += (
-                repo.review_metrics.blocking_reviews_given
-            )
-            self.review_metrics.review_comments_given += (
-                repo.review_metrics.review_comments_given
-            )
-            self.review_metrics.time_to_first_review.extend(
-                repo.review_metrics.time_to_first_review
-            )
-            self.review_metrics.review_cycles.extend(repo.review_metrics.review_cycles)
-            self.review_metrics.review_wait_times.extend(
-                repo.review_metrics.review_wait_times
-            )
-
-            # Time metrics
-            self.time_metrics.time_to_merge.extend(repo.time_metrics.time_to_merge)
-            self.time_metrics.lead_times.extend(repo.time_metrics.lead_times)
-            self.time_metrics.cycle_time.extend(repo.time_metrics.cycle_time)
-            for key in self.time_metrics.merge_distribution:
-                self.time_metrics.merge_distribution[
-                    key
-                ] += repo.time_metrics.merge_distribution[key]
-
     def to_dict(self):
         return {
             "name": self.name,
