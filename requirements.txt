@@ -10,6 +10,7 @@ rich>=13.3.5
 plotly
 markdown
 cryptography>=43.0.1
+requests
 types-requests
 types-python-dateutil
 pandas-stubs
