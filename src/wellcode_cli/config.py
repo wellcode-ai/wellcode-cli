@@ -46,3 +46,15 @@ def get_anthropic_api_key() -> Optional[str]:
 
 def get_split_api_key() -> Optional[str]:
     return get_config_value("SPLIT_API_KEY")
+
+
+def get_jira_api_key() -> Optional[str]:
+    return get_config_value("JIRA_API_KEY")
+
+
+def get_jira_domain() -> Optional[str]:
+    return get_config_value("JIRA_DOMAIN")
+
+
+def get_jira_email() -> Optional[str]:
+    return get_config_value("JIRA_EMAIL")

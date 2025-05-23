@@ -8,7 +8,7 @@
   <strong>Engineering Metrics Powered by AI</strong>
 </p>
 <p align="center">
-  Free, open-source CLI tool that integrates with GitHub, Linear, and Split.io to gather and analyze engineering team metrics.
+  Free, open-source CLI tool that integrates with GitHub, Linear, Jira Cloud, and Split.io to gather and analyze engineering team metrics.
 </p>
 
 ## 🚀 Installation
@@ -27,6 +27,7 @@ wellcode-cli config
 This will guide you through:
 - GitHub App installation for your organization
 - Optional Linear integration
+- Optional Jira Cloud integration
 - Optional Split.io integration
 - Optional Anthropic integration (for AI-powered insights)
 
@@ -88,6 +89,7 @@ wellcode-cli
 
 ### Optional Integrations
 - **Linear**: Issue tracking metrics
+- **Jira Cloud**: Issue tracking metrics (alternative to Linear)
 - **Split.io**: Feature flag analytics
 - **Anthropic**: AI-powered insights
 

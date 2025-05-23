@@ -101,6 +101,10 @@ def get_ai_analysis(all_metrics):
         if "linear" in all_metrics:
             metrics_summary["linear"] = all_metrics["linear"]
 
+        # Jira metrics
+        if "jira" in all_metrics:
+            metrics_summary["jira"] = all_metrics["jira"]
+
         # Split metrics
         if "split" in all_metrics:
             metrics_summary["split"] = all_metrics["split"]

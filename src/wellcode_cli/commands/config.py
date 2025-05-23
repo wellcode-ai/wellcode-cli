@@ -9,6 +9,7 @@ from ..config import get_github_org
 from ..github.app_config import WELLCODE_APP
 from ..github.auth import clear_user_token, get_user_token
 from ..github.client import GithubClient
+from ..jira.jira_metrics import test_jira_connection
 
 console = Console()
 CONFIG_FILE = Path.home() / ".wellcode" / "config.json"
@@ -111,13 +112,19 @@ def config():
         # Optional integrations with secret masking
         optional_configs = {
             "Linear": ("LINEAR_API_KEY", "Enter your Linear API key"),
+            "Jira": ("JIRA_API_KEY", "Enter your Jira API key"),
             "Split.io": ("SPLIT_API_KEY", "Enter your Split.io API key"),
             "Anthropic": ("ANTHROPIC_API_KEY", "Enter your Anthropic API key"),
         }
 
         for name, (key, prompt) in optional_configs.items():
             console.print(f"\n[bold cyan]{name} Configuration[/]")
-            handle_sensitive_config(config_data, name, key, prompt)
+            
+            # Special handling for Jira to get additional required fields
+            if name == "Jira":
+                handle_jira_config(config_data)
+            else:
+                handle_sensitive_config(config_data, name, key, prompt)
 
         # Save configuration
         CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -134,8 +141,14 @@ def config():
             console.print("[green]✓ GitHub App installed and configured[/]")
 
         for name, (key, _) in optional_configs.items():
-            status = "✓" if key in config_data else "✗"
-            color = "green" if key in config_data else "red"
+            if name == "Jira":
+                # Special check for Jira which requires multiple fields
+                has_jira = all(k in config_data for k in ["JIRA_DOMAIN", "JIRA_EMAIL", "JIRA_API_KEY"])
+                status = "✓" if has_jira else "✗"
+                color = "green" if has_jira else "red"
+            else:
+                status = "✓" if key in config_data else "✗"
+                color = "green" if key in config_data else "red"
             console.print(f"[{color}]{status} {name}[/]")
 
         console.print("\n✅ [green]Configuration saved successfully![/]")
@@ -184,3 +197,67 @@ def handle_sensitive_config(config_data, name, key, prompt_text):
             value = Prompt.ask(prompt_text)
             if value:
                 config_data[key] = value
+
+
+def handle_jira_config(config_data):
+    """Handle Jira configuration with domain, email, and API key"""
+    has_jira_config = all(key in config_data for key in ["JIRA_DOMAIN", "JIRA_EMAIL", "JIRA_API_KEY"])
+
+    if has_jira_config:
+        console.print("[yellow]Jira integration is already configured[/]")
+        choice = Prompt.ask(
+            "Would you like to reconfigure Jira?",
+            choices=["y", "n", "clear"],
+            default="n",
+        )
+
+        if choice == "y":
+            configure_jira_details(config_data)
+        elif choice == "clear":
+            for key in ["JIRA_DOMAIN", "JIRA_EMAIL", "JIRA_API_KEY"]:
+                if key in config_data:
+                    del config_data[key]
+            console.print("[yellow]Jira configuration cleared[/]")
+    else:
+        if Confirm.ask("Would you like to configure Jira integration?", default=False):
+            configure_jira_details(config_data)
+
+
+def configure_jira_details(config_data):
+    """Configure Jira domain, email, and API key"""
+    console.print("\n[bold]Jira Cloud Configuration[/]")
+    console.print("You'll need:")
+    console.print("1. Your Jira domain (e.g., 'mycompany' for mycompany.atlassian.net)")
+    console.print("2. Your email address")
+    console.print("3. An API token from https://id.atlassian.com/manage-profile/security/api-tokens")
+    
+    # Get domain
+    current_domain = config_data.get("JIRA_DOMAIN", "")
+    domain = Prompt.ask("Enter your Jira domain", default=current_domain)
+    if not domain:
+        console.print("[red]Domain is required for Jira integration[/]")
+        return
+    
+    # Get email
+    current_email = config_data.get("JIRA_EMAIL", "")
+    email = Prompt.ask("Enter your email address", default=current_email)
+    if not email:
+        console.print("[red]Email is required for Jira integration[/]")
+        return
+    
+    # Get API key
+    api_key = Prompt.ask("Enter your Jira API token")
+    if not api_key:
+        console.print("[red]API token is required for Jira integration[/]")
+        return
+    
+    # Test the connection
+    console.print("\n[yellow]Testing Jira connection...[/]")
+    if test_jira_connection(domain, email, api_key):
+        config_data["JIRA_DOMAIN"] = domain
+        config_data["JIRA_EMAIL"] = email
+        config_data["JIRA_API_KEY"] = api_key
+        console.print("[green]✓ Jira configuration saved successfully![/]")
+    else:
+        console.print("[red]✗ Jira connection failed. Configuration not saved.[/]")
+        console.print("Please check your domain, email, and API token.")

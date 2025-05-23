@@ -10,6 +10,7 @@ from .. import __version__
 from ..config import (
     get_anthropic_api_key,
     get_github_org,
+    get_jira_api_key,
     get_linear_api_key,
     get_split_api_key,
 )
@@ -18,6 +19,8 @@ from ..github.client import GithubClient
 from ..github.github_display import display_github_metrics
 from ..github.github_format_ai import format_ai_response, get_ai_analysis
 from ..github.github_metrics import get_github_metrics
+from ..jira.jira_display import display_jira_metrics
+from ..jira.jira_metrics import get_jira_metrics
 from ..linear.linear_display import display_linear_metrics
 from ..linear.linear_metrics import get_linear_metrics
 from ..split_metrics import display_split_metrics, get_split_metrics
@@ -120,6 +123,18 @@ def review(start_date, end_date, user, team):
             display_linear_metrics(linear_metrics)
         else:
             console.print("[yellow]⚠️  Linear integration not configured[/]")
+
+        # Jira metrics
+        if get_jira_api_key():
+            status.update("Fetching Jira metrics...")
+            jira_metrics = get_jira_metrics(start_date, end_date, user)
+            if jira_metrics:
+                all_metrics["jira"] = jira_metrics
+                display_jira_metrics(jira_metrics)
+            else:
+                console.print("[red]Error: Failed to fetch Jira metrics[/]")
+        else:
+            console.print("[yellow]⚠️  Jira integration not configured[/]")
 
         # Split metrics
         if get_split_api_key():
