@@ -9,7 +9,6 @@ from github import Github
 from ...config import get_config_value
 from ..scm_protocol import (
     SCMDeployment,
-    SCMProvider,
     SCMPullRequest,
     SCMRepository,
     SCMTeam,
@@ -146,10 +145,10 @@ class GitHubProvider:
                         review_cycles=review_cycles,
                         is_revert="revert" in pr.title.lower(),
                         is_hotfix="hotfix" in pr.title.lower() or any(
-                            l.name.lower() == "hotfix" for l in pr.labels
+                            label.name.lower() == "hotfix" for label in pr.labels
                         ),
                         is_self_merged=is_self_merged,
-                        labels=[l.name for l in pr.labels],
+                        labels=[label.name for label in pr.labels],
                         reviewers=list(reviewer_set),
                         repository_full_name=repo.full_name,
                         url=pr.html_url,

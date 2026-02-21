@@ -1,7 +1,6 @@
 """FastAPI application for the Wellcode web dashboard and API."""
 
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -9,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from ..db.engine import init_db
-from .routes import dora, metrics, surveys, health, ai_metrics
+from .routes import ai_metrics, dora, health, metrics, surveys
 
 
 @asynccontextmanager

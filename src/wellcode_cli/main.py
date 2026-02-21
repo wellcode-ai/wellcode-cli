@@ -61,6 +61,7 @@ cli.add_command(completion)
 def serve(host, port, reload, schedule, interval):
     """Start the Wellcode API server and web dashboard."""
     import uvicorn
+
     from .db.engine import init_db
 
     init_db()
@@ -90,6 +91,7 @@ def serve(host, port, reload, schedule, interval):
 def collect(start_date, end_date, days):
     """Collect metrics from all configured providers and store them."""
     from datetime import datetime, timedelta, timezone
+
     from .db.engine import init_db
     from .services.collector import collect_all
 
@@ -100,7 +102,7 @@ def collect(start_date, end_date, days):
     if start_date is None:
         start_date = end_date - timedelta(days=days)
 
-    console.print(f"\n[bold blue]Wellcode[/] - Collecting metrics")
+    console.print("\n[bold blue]Wellcode[/] - Collecting metrics")
     console.print(f"Period: {start_date.date()} to {end_date.date()}\n")
 
     with console.status("[bold green]Collecting metrics from all providers..."):
@@ -130,11 +132,13 @@ def collect(start_date, end_date, days):
 def dora(start_date, end_date, days, repo_id, team_id):
     """View DORA metrics for your organization."""
     from datetime import datetime, timedelta, timezone
+
     from rich.panel import Panel
     from rich.table import Table
-    from .db.engine import init_db, get_session
+
+    from .db.engine import get_session, init_db
     from .db.repository import MetricStore
-    from .services.dora import compute_dora, DORA_THRESHOLDS
+    from .services.dora import compute_dora
 
     init_db()
 
@@ -195,9 +199,11 @@ def dora(start_date, end_date, days, repo_id, team_id):
 def ai_metrics_cmd(start_date, end_date, days):
     """View AI coding tool adoption and impact metrics."""
     from datetime import datetime, timedelta, timezone
+
     from rich.panel import Panel
     from rich.table import Table
-    from .db.engine import init_db, get_session
+
+    from .db.engine import get_session, init_db
     from .db.repository import MetricStore
     from .services.ai_metrics import compute_ai_impact
 
@@ -275,7 +281,7 @@ def ai_metrics_cmd(start_date, end_date, days):
 def survey(template, title):
     """Create and manage developer experience surveys."""
     from .db.engine import init_db
-    from .services.surveys import create_survey_from_template, SURVEY_TEMPLATES
+    from .services.surveys import SURVEY_TEMPLATES, create_survey_from_template
 
     init_db()
 
@@ -284,7 +290,7 @@ def survey(template, title):
     console.print(f"  ID: {s.id}")
     console.print(f"  Type: {template}")
     console.print(f"  Questions: {len(SURVEY_TEMPLATES[template])}")
-    console.print(f"\n[dim]Share via API: POST /api/v1/surveys/respond[/]")
+    console.print("\n[dim]Share via API: POST /api/v1/surveys/respond[/]")
 
 
 def main():

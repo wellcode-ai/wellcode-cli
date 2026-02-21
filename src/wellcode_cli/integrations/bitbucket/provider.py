@@ -38,10 +38,10 @@ class BitbucketProvider:
         if self._client is None:
             try:
                 from atlassian import Bitbucket
-            except ImportError:
+            except ImportError as err:
                 raise ImportError(
                     "atlassian-python-api is required: pip install atlassian-python-api"
-                )
+                ) from err
             if not self._username or not self._app_password:
                 raise ValueError("Bitbucket credentials not configured")
             self._client = Bitbucket(

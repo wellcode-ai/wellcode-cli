@@ -1,7 +1,7 @@
 """GitLab SCM provider implementation."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from ...config import get_config_value
@@ -32,8 +32,8 @@ class GitLabProvider:
         if self._client is None:
             try:
                 import gitlab
-            except ImportError:
-                raise ImportError("python-gitlab is required: pip install python-gitlab")
+            except ImportError as err:
+                raise ImportError("python-gitlab is required: pip install python-gitlab") from err
             if not self._token:
                 raise ValueError("GitLab token not configured")
             self._client = gitlab.Gitlab(self._url, private_token=self._token)

@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ...db.engine import get_session
-from ...db.models import Survey
 from ...db.repository import MetricStore
 from ...services.surveys import (
     SURVEY_TEMPLATES,
@@ -70,10 +69,7 @@ def create_survey(req: CreateSurveyRequest):
         target_teams=req.target_teams,
         recurrence=req.recurrence,
     )
-    session = get_session()
-    s = session.get(Survey, survey.id)
     q_count = len(SURVEY_TEMPLATES.get(req.template, []))
-    session.close()
 
     return SurveyResponseModel(
         id=survey.id,

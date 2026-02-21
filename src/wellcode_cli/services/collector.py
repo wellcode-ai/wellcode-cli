@@ -5,12 +5,12 @@ Pulls data from all configured SCM providers and stores it in the database.
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from ..config import get_config_value
 from ..db.engine import get_session, init_db
-from ..db.models import PullRequestMetric, DeploymentMetric
+from ..db.models import DeploymentMetric, PullRequestMetric
 from ..db.repository import MetricStore
 from ..integrations.scm_protocol import SCMProvider
 

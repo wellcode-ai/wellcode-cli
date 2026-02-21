@@ -1,6 +1,6 @@
 """Data access layer for all persistent metric storage."""
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import func, select
@@ -18,10 +18,8 @@ from .models import (
     PullRequestMetric,
     Repository,
     Survey,
-    SurveyQuestion,
     SurveyResponse,
     Team,
-    TeamMember,
 )
 
 

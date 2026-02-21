@@ -6,12 +6,10 @@ Supports:
 - Claude Code / Aider (commit metadata detection)
 """
 
-import json
 import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
 import requests
@@ -137,7 +135,7 @@ AI_BOT_AUTHORS = {
 def detect_ai_tool_from_pr(title: str, labels: list, body: str = "") -> Optional[str]:
     """Detect which AI tool was used based on PR metadata."""
     text = f"{title} {body}".lower()
-    label_text = " ".join(l.lower() for l in labels)
+    label_text = " ".join(lbl.lower() for lbl in labels)
 
     if "copilot" in text or "copilot" in label_text:
         return "copilot"

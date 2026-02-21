@@ -9,10 +9,12 @@ Computes the four key DORA metrics:
 
 import statistics
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 
-from ..db.models import DeploymentMetric, DORASnapshot, IncidentMetric, PullRequestMetric
+from ..db.models import (
+    DORASnapshot,
+)
 from ..db.repository import MetricStore
 
 DORA_THRESHOLDS = {
