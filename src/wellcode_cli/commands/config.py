@@ -108,6 +108,48 @@ def config():
 
             console.print("[green]✓ GitHub configuration complete![/]")
 
+        # JIRA integration (requires URL, email, and API token)
+        console.print("\n[bold cyan]JIRA Configuration[/]")
+        has_jira = "JIRA_API_TOKEN" in config_data
+        if has_jira:
+            console.print("[yellow]JIRA is already configured[/]")
+            jira_choice = Prompt.ask(
+                "Would you like to reconfigure JIRA?",
+                choices=["y", "n", "clear"],
+                default="n",
+            )
+            if jira_choice == "y":
+                jira_url = Prompt.ask(
+                    "Enter your JIRA instance URL (e.g. https://org.atlassian.net)",
+                    default=config_data.get("JIRA_URL", ""),
+                )
+                jira_email = Prompt.ask(
+                    "Enter your JIRA email",
+                    default=config_data.get("JIRA_EMAIL", ""),
+                )
+                jira_token = Prompt.ask("Enter your JIRA API token")
+                if jira_url and jira_email and jira_token:
+                    config_data["JIRA_URL"] = jira_url.rstrip("/")
+                    config_data["JIRA_EMAIL"] = jira_email
+                    config_data["JIRA_API_TOKEN"] = jira_token
+            elif jira_choice == "clear":
+                for k in ("JIRA_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"):
+                    config_data.pop(k, None)
+                console.print("[yellow]JIRA configuration cleared[/]")
+        else:
+            if Confirm.ask(
+                "Would you like to configure JIRA integration?", default=False
+            ):
+                jira_url = Prompt.ask(
+                    "Enter your JIRA instance URL (e.g. https://org.atlassian.net)"
+                )
+                jira_email = Prompt.ask("Enter your JIRA email")
+                jira_token = Prompt.ask("Enter your JIRA API token")
+                if jira_url and jira_email and jira_token:
+                    config_data["JIRA_URL"] = jira_url.rstrip("/")
+                    config_data["JIRA_EMAIL"] = jira_email
+                    config_data["JIRA_API_TOKEN"] = jira_token
+
         # Optional integrations with secret masking
         optional_configs = {
             "Linear": ("LINEAR_API_KEY", "Enter your Linear API key"),
@@ -132,6 +174,10 @@ def config():
                 f"[green]✓ GitHub Organization: {config_data['GITHUB_ORG']}[/]"
             )
             console.print("[green]✓ GitHub App installed and configured[/]")
+
+        jira_status = "✓" if "JIRA_API_TOKEN" in config_data else "✗"
+        jira_color = "green" if "JIRA_API_TOKEN" in config_data else "red"
+        console.print(f"[{jira_color}]{jira_status} JIRA[/]")
 
         for name, (key, _) in optional_configs.items():
             status = "✓" if key in config_data else "✗"

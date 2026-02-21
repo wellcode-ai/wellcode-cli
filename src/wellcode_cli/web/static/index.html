@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wellcode - Developer Productivity Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --border: #334155; --text: #e2e8f0; --muted: #94a3b8; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+        .badge-elite { background: #065f46; color: #6ee7b7; }
+        .badge-high { background: #1e3a5f; color: #93c5fd; }
+        .badge-medium { background: #713f12; color: #fcd34d; }
+        .badge-low { background: #7f1d1d; color: #fca5a5; }
+        .metric-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+        .tab-active { border-bottom: 2px solid #6366f1; color: #a5b4fc; }
+        .tab-inactive { color: #64748b; }
+        .tab-inactive:hover { color: #94a3b8; }
+        canvas { max-height: 300px; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <nav class="border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-white">W</div>
+            <span class="text-lg font-semibold">Wellcode</span>
+            <span class="text-xs text-slate-500 ml-2">v0.2.0</span>
+        </div>
+        <div class="flex gap-6 text-sm">
+            <button onclick="showTab('overview')" id="tab-overview" class="tab-active pb-1">Overview</button>
+            <button onclick="showTab('dora')" id="tab-dora" class="tab-inactive pb-1">DORA</button>
+            <button onclick="showTab('ai')" id="tab-ai" class="tab-inactive pb-1">AI Metrics</button>
+            <button onclick="showTab('prs')" id="tab-prs" class="tab-inactive pb-1">Pull Requests</button>
+            <button onclick="showTab('surveys')" id="tab-surveys" class="tab-inactive pb-1">DX Surveys</button>
+        </div>
+        <div class="flex gap-2">
+            <select id="period" class="bg-slate-800 border border-slate-600 rounded px-3 py-1 text-sm" onchange="loadData()">
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30" selected>Last 30 days</option>
+                <option value="90">Last 90 days</option>
+            </select>
+            <button onclick="runCollect()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-1 rounded text-sm font-medium">Collect</button>
+        </div>
+    </nav>
+
+    <!-- Overview Tab -->
+    <div id="page-overview" class="p-6 space-y-6">
+        <div class="grid grid-cols-4 gap-4">
+            <div class="card p-5">
+                <div class="text-slate-400 text-sm">Total PRs</div>
+                <div class="metric-value mt-1" id="stat-total-prs">-</div>
+            </div>
+            <div class="card p-5">
+                <div class="text-slate-400 text-sm">Merged PRs</div>
+                <div class="metric-value mt-1 text-green-400" id="stat-merged-prs">-</div>
+            </div>
+            <div class="card p-5">
+                <div class="text-slate-400 text-sm">Avg Cycle Time</div>
+                <div class="metric-value mt-1 text-blue-400" id="stat-cycle-time">-</div>
+            </div>
+            <div class="card p-5">
+                <div class="text-slate-400 text-sm">AI-Assisted PRs</div>
+                <div class="metric-value mt-1 text-purple-400" id="stat-ai-prs">-</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="card p-5">
+                <h3 class="font-semibold mb-4">PR Size Distribution</h3>
+                <canvas id="chart-pr-size"></canvas>
+            </div>
+            <div class="card p-5">
+                <h3 class="font-semibold mb-4">Top Contributors</h3>
+                <div id="top-contributors" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DORA Tab -->
+    <div id="page-dora" class="p-6 space-y-6 hidden">
+        <div class="card p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold">DORA Metrics</h2>
+                <span id="dora-badge" class="px-3 py-1 rounded-full text-sm font-medium badge-low">-</span>
+            </div>
+            <div class="grid grid-cols-4 gap-6">
+                <div>
+                    <div class="text-slate-400 text-sm">Deployment Frequency</div>
+                    <div class="metric-value mt-1" id="dora-df">-</div>
+                    <div class="text-xs text-slate-500 mt-1">Elite: &gt;1/day</div>
+                </div>
+                <div>
+                    <div class="text-slate-400 text-sm">Lead Time for Changes</div>
+                    <div class="metric-value mt-1" id="dora-lt">-</div>
+                    <div class="text-xs text-slate-500 mt-1">Elite: &lt;1 hour</div>
+                </div>
+                <div>
+                    <div class="text-slate-400 text-sm">Change Failure Rate</div>
+                    <div class="metric-value mt-1" id="dora-cfr">-</div>
+                    <div class="text-xs text-slate-500 mt-1">Elite: 0-15%</div>
+                </div>
+                <div>
+                    <div class="text-slate-400 text-sm">Mean Time to Recovery</div>
+                    <div class="metric-value mt-1" id="dora-mttr">-</div>
+                    <div class="text-xs text-slate-500 mt-1">Elite: &lt;1 hour</div>
+                </div>
+            </div>
+        </div>
+        <div class="card p-5">
+            <h3 class="font-semibold mb-4">DORA Trend</h3>
+            <canvas id="chart-dora-trend"></canvas>
+        </div>
+    </div>
+
+    <!-- AI Metrics Tab -->
+    <div id="page-ai" class="p-6 space-y-6 hidden">
+        <div class="grid grid-cols-3 gap-4">
+            <div class="card p-5">
+                <div class="text-slate-400 text-sm">AI-Assisted PRs</div>
+                <div class="metric-value mt-1 text-purple-400" id="ai-pr-count">-</div>
+            </div>
+            <div class="card p-5">
+                <div class="text-slate-400 text-sm">Productivity Change</div>
+                <div class="metric-value mt-1" id="ai-productivity">-</div>
+            </div>
+            <div class="card p-5">
+                <div class="text-slate-400 text-sm">Active AI Users</div>
+                <div class="metric-value mt-1 text-cyan-400" id="ai-users">-</div>
+            </div>
+        </div>
+        <div class="card p-5">
+            <h3 class="font-semibold mb-4">AI Tool Usage</h3>
+            <div id="ai-tools-table" class="overflow-x-auto">
+                <table class="w-full text-sm"><thead><tr class="text-slate-400 border-b border-slate-700">
+                    <th class="text-left py-2">Tool</th><th class="text-right py-2">Users</th>
+                    <th class="text-right py-2">Suggestions</th><th class="text-right py-2">Accepted</th>
+                    <th class="text-right py-2">Rate</th><th class="text-right py-2">Lines</th>
+                    <th class="text-right py-2">Cost</th>
+                </tr></thead><tbody id="ai-tools-body"></tbody></table>
+            </div>
+        </div>
+        <div class="card p-5">
+            <h3 class="font-semibold mb-4">AI vs Non-AI Comparison</h3>
+            <canvas id="chart-ai-compare"></canvas>
+        </div>
+    </div>
+
+    <!-- PR Tab -->
+    <div id="page-prs" class="p-6 space-y-6 hidden">
+        <div class="grid grid-cols-4 gap-4">
+            <div class="card p-5">
+                <div class="text-slate-400 text-sm">Avg Time to Review</div>
+                <div class="metric-value mt-1 text-yellow-400" id="pr-review-time">-</div>
+            </div>
+            <div class="card p-5">
+                <div class="text-slate-400 text-sm">Avg PR Size</div>
+                <div class="metric-value mt-1" id="pr-avg-size">-</div>
+            </div>
+            <div class="card p-5">
+                <div class="text-slate-400 text-sm">Reverts</div>
+                <div class="metric-value mt-1 text-red-400" id="pr-reverts">-</div>
+            </div>
+            <div class="card p-5">
+                <div class="text-slate-400 text-sm">Self-Merges</div>
+                <div class="metric-value mt-1 text-orange-400" id="pr-self-merges">-</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Surveys Tab -->
+    <div id="page-surveys" class="p-6 space-y-6 hidden">
+        <div class="card p-6">
+            <h2 class="text-xl font-bold mb-4">Developer Experience Surveys</h2>
+            <p class="text-slate-400 mb-4">Create and manage DX surveys to measure developer satisfaction and identify bottlenecks.</p>
+            <div class="flex gap-3">
+                <button onclick="createSurvey('pulse')" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded text-sm">Create Pulse Survey</button>
+                <button onclick="createSurvey('full_dx')" class="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded text-sm">Create Full DX Survey</button>
+            </div>
+        </div>
+        <div id="surveys-list" class="space-y-3"></div>
+    </div>
+
+    <script>
+    const API = '/api/v1';
+    let charts = {};
+
+    function showTab(name) {
+        ['overview','dora','ai','prs','surveys'].forEach(t => {
+            document.getElementById('page-'+t).classList.toggle('hidden', t !== name);
+            document.getElementById('tab-'+t).className = t === name ? 'tab-active pb-1' : 'tab-inactive pb-1';
+        });
+    }
+
+    function fmt(h) { return h < 1 ? `${Math.round(h*60)}m` : h < 24 ? `${h.toFixed(1)}h` : `${(h/24).toFixed(1)}d`; }
+
+    async function loadData() {
+        const days = document.getElementById('period').value;
+        const end = new Date().toISOString().slice(0,10);
+        const start = new Date(Date.now()-days*86400000).toISOString().slice(0,10);
+        const qs = `?start=${start}&end=${end}`;
+
+        try {
+            const [prData, doraData, aiData] = await Promise.all([
+                fetch(API+'/metrics/prs'+qs).then(r=>r.json()).catch(()=>null),
+                fetch(API+'/dora'+qs).then(r=>r.json()).catch(()=>null),
+                fetch(API+'/ai/impact'+qs).then(r=>r.json()).catch(()=>null),
+            ]);
+
+            if (prData) {
+                document.getElementById('stat-total-prs').textContent = prData.total_prs;
+                document.getElementById('stat-merged-prs').textContent = prData.merged_prs;
+                document.getElementById('stat-cycle-time').textContent = fmt(prData.avg_cycle_time_hours);
+                document.getElementById('stat-ai-prs').textContent = prData.ai_assisted_count;
+                document.getElementById('pr-review-time').textContent = fmt(prData.avg_time_to_first_review_hours);
+                document.getElementById('pr-avg-size').textContent = Math.round(prData.avg_pr_size);
+                document.getElementById('pr-reverts').textContent = prData.revert_count;
+                document.getElementById('pr-self-merges').textContent = prData.self_merge_count;
+
+                const d = prData.pr_size_distribution;
+                renderDonut('chart-pr-size', [d.small||0, d.medium||0, d.large||0], ['Small (<100)', 'Medium (100-500)', 'Large (500+)'], ['#6ee7b7','#fcd34d','#fca5a5']);
+
+                const tc = document.getElementById('top-contributors');
+                tc.innerHTML = (prData.top_contributors||[]).map(c =>
+                    `<div class="flex justify-between items-center"><span>${c.username}</span><span class="text-indigo-400 font-mono">${c.pr_count} PRs</span></div>`
+                ).join('') || '<div class="text-slate-500">No data yet</div>';
+            }
+
+            if (doraData) {
+                const df = doraData.deployment_frequency;
+                document.getElementById('dora-df').textContent = df >= 1 ? `${df.toFixed(1)}/day` : `${(df*7).toFixed(1)}/week`;
+                document.getElementById('dora-lt').textContent = fmt(doraData.lead_time_hours);
+                document.getElementById('dora-cfr').textContent = `${(doraData.change_failure_rate*100).toFixed(1)}%`;
+                document.getElementById('dora-mttr').textContent = fmt(doraData.mttr_hours);
+                const badge = document.getElementById('dora-badge');
+                badge.textContent = doraData.level.toUpperCase();
+                badge.className = `px-3 py-1 rounded-full text-sm font-medium badge-${doraData.level}`;
+            }
+
+            if (aiData) {
+                document.getElementById('ai-pr-count').textContent = aiData.ai_assisted_pr_count;
+                const pc = aiData.productivity_change_pct;
+                document.getElementById('ai-productivity').textContent = `${pc>=0?'+':''}${pc.toFixed(1)}%`;
+                document.getElementById('ai-productivity').className = `metric-value mt-1 ${pc>=0?'text-green-400':'text-red-400'}`;
+
+                let totalUsers = 0;
+                const tbody = document.getElementById('ai-tools-body');
+                tbody.innerHTML = (aiData.tools||[]).map(t => {
+                    totalUsers += t.active_users;
+                    return `<tr class="border-b border-slate-800"><td class="py-2">${t.tool}</td>
+                    <td class="text-right">${t.active_users}</td><td class="text-right">${t.total_suggestions_shown}</td>
+                    <td class="text-right">${t.total_suggestions_accepted}</td>
+                    <td class="text-right">${(t.acceptance_rate*100).toFixed(1)}%</td>
+                    <td class="text-right">${t.total_lines_accepted}</td>
+                    <td class="text-right">$${t.total_cost_usd.toFixed(2)}</td></tr>`;
+                }).join('') || '<tr><td colspan="7" class="py-2 text-slate-500">No AI tool data yet</td></tr>';
+                document.getElementById('ai-users').textContent = totalUsers;
+
+                if (aiData.ai_avg_cycle_time_hours || aiData.non_ai_avg_cycle_time_hours) {
+                    renderBar('chart-ai-compare',
+                        ['Cycle Time', 'Review Time'],
+                        [{label:'AI-Assisted',data:[aiData.ai_avg_cycle_time_hours,aiData.ai_avg_review_time_hours],bg:'#a78bfa'},
+                         {label:'Non-AI',data:[aiData.non_ai_avg_cycle_time_hours,aiData.non_ai_avg_review_time_hours],bg:'#64748b'}]
+                    );
+                }
+            }
+
+            const histData = await fetch(API+'/dora/history?limit=12').then(r=>r.json()).catch(()=>[]);
+            if (histData.length) {
+                renderLine('chart-dora-trend', histData.map(h=>h.period_end.slice(0,10)), [
+                    {label:'Deploy Freq',data:histData.map(h=>h.deployment_frequency),color:'#6ee7b7'},
+                    {label:'Lead Time (h)',data:histData.map(h=>h.lead_time_hours),color:'#93c5fd'},
+                ]);
+            }
+
+            // Surveys
+            const surveys = await fetch(API+'/surveys/active').then(r=>r.json()).catch(()=>[]);
+            document.getElementById('surveys-list').innerHTML = surveys.map(s =>
+                `<div class="card p-4 flex justify-between items-center">
+                    <div><span class="font-medium">${s.title}</span><span class="text-slate-400 ml-2 text-sm">${s.total_questions} questions</span></div>
+                    <span class="px-2 py-0.5 rounded text-xs bg-green-900 text-green-300">${s.status}</span>
+                </div>`
+            ).join('') || '<div class="text-slate-500">No active surveys</div>';
+
+        } catch(e) { console.error('Load error:', e); }
+    }
+
+    function renderDonut(id, data, labels, colors) {
+        if (charts[id]) charts[id].destroy();
+        charts[id] = new Chart(document.getElementById(id), {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
+            options: { responsive: true, plugins: { legend: { labels: { color: '#94a3b8' } } } }
+        });
+    }
+    function renderBar(id, labels, datasets) {
+        if (charts[id]) charts[id].destroy();
+        charts[id] = new Chart(document.getElementById(id), {
+            type: 'bar',
+            data: { labels, datasets: datasets.map(d => ({label:d.label,data:d.data,backgroundColor:d.bg})) },
+            options: { responsive: true, scales: { y: { ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } }, plugins: { legend: { labels: { color: '#94a3b8' } } } }
+        });
+    }
+    function renderLine(id, labels, datasets) {
+        if (charts[id]) charts[id].destroy();
+        charts[id] = new Chart(document.getElementById(id), {
+            type: 'line',
+            data: { labels, datasets: datasets.map(d => ({label:d.label,data:d.data,borderColor:d.color,backgroundColor:d.color+'33',fill:true,tension:0.3})) },
+            options: { responsive: true, scales: { y: { ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } }, plugins: { legend: { labels: { color: '#94a3b8' } } } }
+        });
+    }
+    async function runCollect() {
+        const btn = event.target; btn.textContent = 'Collecting...'; btn.disabled = true;
+        try { await fetch(API+'/metrics/snapshots'); } catch(e) {}
+        setTimeout(() => { btn.textContent = 'Collect'; btn.disabled = false; loadData(); }, 2000);
+    }
+    async function createSurvey(template) {
+        await fetch(API+'/surveys/create', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({template}) });
+        loadData();
+    }
+
+    loadData();
+    </script>
+</body>
+</html>

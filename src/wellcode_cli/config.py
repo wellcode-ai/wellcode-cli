@@ -46,3 +46,39 @@ def get_anthropic_api_key() -> Optional[str]:
 
 def get_split_api_key() -> Optional[str]:
     return get_config_value("SPLIT_API_KEY")
+
+
+def get_jira_url() -> Optional[str]:
+    return get_config_value("JIRA_URL")
+
+
+def get_jira_email() -> Optional[str]:
+    return get_config_value("JIRA_EMAIL")
+
+
+def get_jira_api_token() -> Optional[str]:
+    return get_config_value("JIRA_API_TOKEN")
+
+
+def get_gitlab_token() -> Optional[str]:
+    return get_config_value("GITLAB_TOKEN")
+
+
+def get_gitlab_url() -> Optional[str]:
+    return get_config_value("GITLAB_URL")
+
+
+def get_bitbucket_username() -> Optional[str]:
+    return get_config_value("BITBUCKET_USERNAME")
+
+
+def get_bitbucket_app_password() -> Optional[str]:
+    return get_config_value("BITBUCKET_APP_PASSWORD")
+
+
+def get_bitbucket_workspace() -> Optional[str]:
+    return get_config_value("BITBUCKET_WORKSPACE")
+
+
+def get_database_url() -> Optional[str]:
+    return get_config_value("DATABASE_URL")
