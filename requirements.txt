@@ -20,3 +20,4 @@ types-urllib3
 pre-commit
 pyperclip
 prompt_toolkit
+jira
