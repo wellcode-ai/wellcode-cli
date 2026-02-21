@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  wellcode:
+    build: .
+    ports:
+      - "8787:8787"
+    volumes:
+      - wellcode-data:/data
+    environment:
+      - DATABASE_URL=postgresql://wellcode:wellcode@postgres:5432/wellcode
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_ORG=${GITHUB_ORG}
+      - GITLAB_TOKEN=${GITLAB_TOKEN}
+      - GITLAB_URL=${GITLAB_URL}
+      - BITBUCKET_USERNAME=${BITBUCKET_USERNAME}
+      - BITBUCKET_APP_PASSWORD=${BITBUCKET_APP_PASSWORD}
+      - BITBUCKET_WORKSPACE=${BITBUCKET_WORKSPACE}
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+      - LINEAR_API_KEY=${LINEAR_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: wellcode
+      POSTGRES_PASSWORD: wellcode
+      POSTGRES_DB: wellcode
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-LINE", "pg_isready -U wellcode"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  wellcode-data:
+  postgres-data:

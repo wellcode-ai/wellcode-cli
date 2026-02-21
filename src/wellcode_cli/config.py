@@ -58,3 +58,27 @@ def get_jira_email() -> Optional[str]:
 
 def get_jira_api_token() -> Optional[str]:
     return get_config_value("JIRA_API_TOKEN")
+
+
+def get_gitlab_token() -> Optional[str]:
+    return get_config_value("GITLAB_TOKEN")
+
+
+def get_gitlab_url() -> Optional[str]:
+    return get_config_value("GITLAB_URL")
+
+
+def get_bitbucket_username() -> Optional[str]:
+    return get_config_value("BITBUCKET_USERNAME")
+
+
+def get_bitbucket_app_password() -> Optional[str]:
+    return get_config_value("BITBUCKET_APP_PASSWORD")
+
+
+def get_bitbucket_workspace() -> Optional[str]:
+    return get_config_value("BITBUCKET_WORKSPACE")
+
+
+def get_database_url() -> Optional[str]:
+    return get_config_value("DATABASE_URL")
